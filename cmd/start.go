@@ -6,6 +6,10 @@ package cmd
 import (
 	"driver/domain"
 	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -25,8 +29,11 @@ var startCmd = &cobra.Command{
 		stakeTicker := schedule(stake, domain.GetStakeInterval(), quit)
 		unstakeTicker := schedule(unstake, domain.GetUnstakeInterval(), quit)
 
-		q := <-quit
-		fmt.Printf("quit channel received %v\n", q)
+		signal.Ignore()
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+		s := <-stop
+		log.Printf("Got signal '%v', stopping", s)
 
 		findTiker.Stop()
 		stakeTicker.Stop()
@@ -37,11 +44,17 @@ var startCmd = &cobra.Command{
 func schedule(task func(), interval time.Duration, done chan bool) *time.Ticker {
 	ticker := time.NewTicker(interval)
 	go func() {
-		select {
-		case <-ticker.C:
-			task()
-		case <-done:
-			return
+		for {
+			select {
+
+			case <-ticker.C:
+				ticker.Stop()
+				task()
+				ticker.Reset(interval)
+
+			case <-done:
+				return
+			}
 		}
 	}()
 	return ticker

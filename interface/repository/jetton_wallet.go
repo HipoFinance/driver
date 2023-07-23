@@ -3,6 +3,7 @@ package repository
 import (
 	"driver/domain"
 	"encoding/json"
+	"time"
 
 	"github.com/behrang/sqlbatch"
 )
@@ -34,9 +35,16 @@ const (
 	where notify_time is null
 `
 
-	sqlJWalletRemove = `
-	delete from jwallet where address = $1
+	sqlJWalletNotified = `
+	update jwallets
+		set notify_time = $2
+	where address = $1
 `
+
+//	sqlJWalletRemove = `
+//	delete from jwallet where address = $1
+//
+// `
 )
 
 type JettonWalletRepository struct {
@@ -118,16 +126,16 @@ func (repo *JettonWalletRepository) FindAllNotNotified() ([]domain.JettonWallet,
 	return result, err
 }
 
-// func (repo *BlockRepository) SetRejected(billId uuid.UUID, reference string) error {
-// 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
-// 		{
-// 			Query:  sqlBlockSetRejected,
-// 			Args:   []interface{}{billId, reference},
-// 			Affect: 1,
-// 		},
-// 	})
-// 	return err
-// }
+func (repo *JettonWalletRepository) UpdateNotified(address string, timestamp time.Time) error {
+	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
+		{
+			Query:  sqlJWalletNotified,
+			Args:   []interface{}{address, timestamp},
+			Affect: 1,
+		},
+	})
+	return err
+}
 
 // func (repo *BlockRepository) SetVerified(billId uuid.UUID, reference string) error {
 // 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{

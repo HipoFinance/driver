@@ -43,7 +43,11 @@ func defaultDependencyInject() {
 		log.Fatal("Unable to create tongo client: ", err)
 	}
 
-	driverWallet, err = wallet.New(domain.GetDriverWalletPrivateKey(), wallet.V3R2, 0, nil, tongoClient)
+	driverWallet, err = wallet.New(domain.GetDriverWalletPrivateKey(), wallet.V4R2, 0, nil, tongoClient)
+	if err != nil {
+		log.Fatalf("Unable to connect to driver wallet - %v\n", err.Error())
+		return
+	}
 
 	jettonWalletRepository := repository.NewJettonWalletRepository(dbHandler)
 

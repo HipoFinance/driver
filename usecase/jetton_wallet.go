@@ -108,6 +108,9 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 		if err != nil {
 			log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
 			continue
+		} else {
+			log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
+			interactor.jwalletRepository.UpdateNotified(wallet.Address, time.Now())
 		}
 	}
 }
@@ -125,13 +128,13 @@ func (interactor *JettonWalletInteractor) stakeCoin(acid tongo.AccountID) error 
 	cell.WriteUint(0, 2)           // return excess
 
 	msg := tgwallet.Message{
-		Amount:  70000000, //  tlb.Grams
-		Address: acid,     // tongo.AccountID
-		Body:    cell,     //    *boc.Cell
-		Code:    nil,      //    *boc.Cell
-		Data:    nil,      //    *boc.Cell
-		Bounce:  true,     //  bool
-		Mode:    0,        //    uint8
+		Amount:  100000000, //  tlb.Grams
+		Address: acid,      //  tongo.AccountID
+		Body:    cell,      //  *boc.Cell
+		Code:    nil,       //  *boc.Cell
+		Data:    nil,       //  *boc.Cell
+		Bounce:  true,      //  bool
+		Mode:    0,         //  uint8
 	}
 
 	err := interactor.driverWallet.Send(context.Background(), msg)

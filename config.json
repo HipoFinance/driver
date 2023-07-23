@@ -1,0 +1,13 @@
+{
+    "service_db_uri": "postgresql://alireza@localhost:5432/hipo?sslmode=disable",
+
+    "network": "testnet",
+    "treasury_address": "kQBfaiRXxnwuDxP0YkvK9H8Zd0W4uVgkhDZ8EAmbWko-6S6Z",
+
+    "mnemonic": "subway under balance inspire glad stuff tongue pudding nut cool front any ocean shed view uncle envelope control outside false skate deny dust lens",
+    "mnemonic_url": "",
+
+    "find_interval": "10m",
+    "stake_interval": "5s",
+    "unstake_interval": "10m"
+}

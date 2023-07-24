@@ -114,20 +114,25 @@ func (m *HMessage) DestExtOut() *tongo.AccountID {
 	return acntId
 }
 
-func (t *HMessage) AllDestAddress() map[string]*tongo.AccountID {
-	res := make(map[string]*tongo.AccountID, 10)
-	// res["int/src"] = t.SrcInt()
-	res["int/dest"] = t.DestInt()
-	// res["ext-in/src"] = t.SrcExtIn()
-	res["ext-in/dest"] = t.DestExtIn()
-	// res["ext-out/src"] = t.SrcExtOut()
-	res["ext-out/dest"] = t.DestExtOut()
+// @TODO: Check if there is only one destination address for any message, return one AccountId rather than an array
+func (m *HMessage) AllDestAddress() []*tongo.AccountID {
+	res := make([]*tongo.AccountID, 0, 1)
 
-	for key, msg := range res {
-		if msg == nil {
-			delete(res, key)
-		}
+	accid := m.DestInt()
+	if accid != nil {
+		res = append(res, accid)
 	}
+
+	accid = m.DestExtIn()
+	if accid != nil {
+		res = append(res, accid)
+	}
+
+	accid = m.DestExtOut()
+	if accid != nil {
+		res = append(res, accid)
+	}
+
 	return res
 }
 

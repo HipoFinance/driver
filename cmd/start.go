@@ -63,7 +63,7 @@ func schedule(task func(), interval time.Duration, done chan bool) *time.Ticker 
 func find() {
 	accountId := domain.GetTreasuryAccountId()
 
-	wallets, err := jettonWalletInteractor.FindJettonWallets(accountId)
+	wallets, err := jettonWalletInteractor.ExtractJettonWallets(accountId)
 	if err != nil {
 		fmt.Printf("❌ No jetton wallet is extracted due to error: %v", err.Error())
 		return
@@ -101,22 +101,12 @@ func unstake() {
 func printOutWallets(wallets map[string]domain.JettonWallet) {
 
 	fmt.Printf("------------- FOUND WALLET LIST -----------------\n")
-	max := 3
 	i := 1
 	for _, wallet := range wallets {
 		fmt.Printf("#%03d - %v [ ", i, wallet.Address)
 		sep := ""
-		for j, info := range wallet.Info {
-			fmt.Printf("%v%v", sep, info.Hash)
-			if j >= (max-1) && len(wallet.Info) > max {
-				fmt.Printf(" and %v more...", len(wallet.Info)-j)
-				break
-			} else if j < len(wallet.Info)-1 {
-				sep = " , "
-			} else {
-				sep = ""
-			}
-		}
+		info := wallet.Info
+		fmt.Printf("%v%v", sep, info.Hash)
 		fmt.Printf(" ]\n")
 		i++
 	}

@@ -14,6 +14,11 @@ import (
 	tgwallet "github.com/tonkeeper/tongo/wallet"
 )
 
+const (
+	OpcodeSaveCoin  = uint32(0x7f30ee55)
+	OpcodeStakeCoin = uint32(0x00)
+)
+
 type JettonWalletInteractor struct {
 	client            *liteapi.Client
 	jwalletRepository *repository.JettonWalletRepository
@@ -31,7 +36,7 @@ func NewJettonWalletInteractor(client *liteapi.Client,
 	return interactor
 }
 
-func (interactor *JettonWalletInteractor) FindJettonWallets(accountId tongo.AccountID) (map[string]domain.JettonWallet, error) {
+func (interactor *JettonWalletInteractor) ExtractJettonWallets(accountId tongo.AccountID) (map[string]domain.JettonWallet, error) {
 
 	var FoundWallets = make(map[string]domain.JettonWallet, 50)
 
@@ -43,15 +48,11 @@ func (interactor *JettonWalletInteractor) FindJettonWallets(accountId tongo.Acco
 	}
 
 	var lastHash tongo.Bits256
-	totalCount := uint(0)
 	for err == nil && len(trans) > 0 {
-		count, err := extractWallets(trans, FoundWallets)
-		if err != nil {
-			log.Printf("Failed to extract wallets - %v\n", err.Error())
-			fmt.Printf("❌ No wallet is kept due to error: %v", err.Error())
-			return nil, err
+		wallets := findDestByOpcode(trans, OpcodeSaveCoin)
+		for _, w := range wallets {
+			FoundWallets[w.Address] = w
 		}
-		totalCount += count
 
 		// Extract the Lt and the Hash of last transaction
 		lastLt := trans[len(trans)-1].Lt
@@ -97,15 +98,21 @@ func (interactor *JettonWalletInteractor) LoadNotNotified() ([]domain.JettonWall
 }
 
 func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []domain.JettonWallet) {
+	// @TODO: The round-since value must be considered as a condition whether to call stakeCoin or not.
+	//
+	//	start from sooner roundSince
+	//  run get_method get_treasury_state
+	//  extract participations field
+	//  check if the desired round-since does exist in participations or not
+	//  if exists, skip it, otherwise send stake-coin message
 	for _, wallet := range wallets {
-		acid, err := tongo.AccountIDFromBase64Url(wallet.Address)
+		accid, err := tongo.AccountIDFromBase64Url(wallet.Address)
 		if err != nil {
 			log.Printf("Failed to parse wallet address %v - %v\n", wallet.Address, err.Error())
 			continue
 		}
 
-		// @TODO: The round-since value must be considered as a condition whether to call stakeCoin or not.
-		err = interactor.stakeCoin(acid)
+		err = interactor.stakeCoin(accid)
 		if err != nil {
 			log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
 			continue
@@ -116,7 +123,7 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 	}
 }
 
-func (interactor *JettonWalletInteractor) stakeCoin(acid tongo.AccountID) error {
+func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID) error {
 	opcode := uint64(0x4cae3ab1)
 
 	queryId := uint64(time.Now().Unix())
@@ -130,7 +137,7 @@ func (interactor *JettonWalletInteractor) stakeCoin(acid tongo.AccountID) error 
 
 	msg := tgwallet.Message{
 		Amount:  100000000, //  tlb.Grams
-		Address: acid,      //  tongo.AccountID
+		Address: accid,     //  tongo.AccountID
 		Body:    cell,      //  *boc.Cell
 		Code:    nil,       //  *boc.Cell
 		Data:    nil,       //  *boc.Cell
@@ -147,55 +154,21 @@ func (interactor *JettonWalletInteractor) stakeCoin(acid tongo.AccountID) error 
 	return nil
 }
 
-func extractWallets(trans []tongo.Transaction, wallets map[string]domain.JettonWallet) (uint, error) {
-	var count uint = 0
-	var err error = nil
-	var DesiredOpcode = uint32(0x7f30ee55) // internal_transfer
-
+func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.JettonWallet {
+	wallets := make([]domain.JettonWallet, 0, 1)
 	for _, t := range trans {
 		ht := domain.NewHTransaction(&t.Transaction)
-		msgs := ht.GetMessagesHavingOpcode(DesiredOpcode)
-		info := &domain.RelatedTransactionInfo{
+		dests := ht.GetDestByOpcode(opcode)
+		info := domain.RelatedTransactionInfo{
 			Value: ht.Value(),
 			Time:  ht.UnixTime(),
 			Hash:  ht.Hash().Base64(),
 		}
-		for _, msg := range msgs {
-			err = keepWallet(msg, info, wallets)
-			if err != nil {
-				log.Printf("Failed to keep wallet - %v\n", err.Error())
-				return 0, err
-			}
-			count++
-		}
-	}
-	return count, err
-}
-
-func keepWallet(hm *domain.HMessage, info *domain.RelatedTransactionInfo, wallets map[string]domain.JettonWallet) error {
-	fmt.Printf("------------------------------------\n"+
-		"Time   : %v\n"+
-		"Value  : %v\n"+
-		"Hash   : %v\n"+
-		"\n",
-		info.Time, info.Value, info.Hash)
-
-	for _, addr := range hm.AllDestAddress() {
-		addrStr := addr.ToHuman(true, domain.IsTestNet())
-		fmt.Printf("   Address: %v\n", addrStr)
-
-		if wallet, ok := wallets[addrStr]; ok {
-			wallet.Info = append(wallet.Info, *info)
-			wallets[addrStr] = wallet
-		} else {
-			wallet = domain.JettonWallet{
-				Address: addrStr,
-				Info:    make([]domain.RelatedTransactionInfo, 0, 1),
-			}
-			wallet.Info = append(wallet.Info, *info)
-			wallets[addrStr] = wallet
+		for _, accid := range dests {
+			addr := accid.ToHuman(true, domain.IsTestNet())
+			wallets = append(wallets, domain.JettonWallet{Address: addr, Info: info, CreateTime: time.Now()})
 		}
 	}
 
-	return nil
+	return wallets
 }

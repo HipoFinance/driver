@@ -8,6 +8,6 @@
     "mnemonic_url": "",
 
     "find_interval": "10s",
-    "stake_interval": "5s",
+    "stake_interval": "15s",
     "unstake_interval": "10m"
 }

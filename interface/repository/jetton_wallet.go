@@ -79,7 +79,7 @@ func readAllJettonWallets(memo interface{}, scan func(...interface{}) error) (in
 	return list, err
 }
 
-func (repo *JettonWalletRepository) InsertIfNotExists(address string, info []domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
+func (repo *JettonWalletRepository) InsertIfNotExists(address string, info domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
 
 	infoJson, _ := json.Marshal(info)
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{

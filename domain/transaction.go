@@ -114,47 +114,25 @@ func (t *HTransaction) IsSucceeded() bool {
 	return t.trans.Description.TransOrd.Action.Value.Value.Success
 }
 
-func (t *HTransaction) GetMessagesHavingOpcode(opcode uint32) []*HMessage {
-	res := make([]*HMessage, 0, 5)
+func (t *HTransaction) GetDestByOpcode(opcode uint32) []*tongo.AccountID {
+	res := make([]*tongo.AccountID, 0, 5)
 
 	msg := t.InMessage()
 	op := msg.Opcode()
 	if opcode == op {
-		res = append(res, msg)
+		addrs := msg.AllDestAddress()
+		res = append(res, addrs...)
 	}
 
 	oMsgs := t.OutMessages()
 	for _, msg := range oMsgs {
 		op = msg.Opcode()
 		if opcode == op {
-			res = append(res, msg)
+			addrs := msg.AllDestAddress()
+			res = append(res, addrs...)
 		}
 	}
 
-	return res
-}
-
-func (t *HTransaction) AllDestAddress() map[string]*tongo.AccountID {
-	res := make(map[string]*tongo.AccountID, 10)
-
-	subres := t.InMessage().AllDestAddress()
-	for key, value := range subres {
-		res["in/"+key] = value
-	}
-
-	for i, msg := range t.OutMessages() {
-		idx := fmt.Sprintf("[%v]", i)
-		subres := msg.AllDestAddress()
-		for key, value := range subres {
-			res["out"+idx+"/"+key] = value
-		}
-	}
-
-	for key, msg := range res {
-		if msg == nil {
-			delete(res, key)
-		}
-	}
 	return res
 }
 
@@ -178,14 +156,14 @@ func (f *HTransactionFormatter) Hash() string {
 
 func (f *HTransactionFormatter) AccountId(format string) string {
 	res := ""
-	acid := f.obj.AccountId()
+	accid := f.obj.AccountId()
 	switch strings.ToLower(format) {
 	case AddrFormatRaw:
-		res = acid.ToRaw()
+		res = accid.ToRaw()
 	case AddrFormatBouncable:
-		res = acid.ToHuman(true, IsTestNet())
+		res = accid.ToHuman(true, IsTestNet())
 	case AddrFormatNonBouncable:
-		res = acid.ToHuman(false, IsTestNet())
+		res = accid.ToHuman(false, IsTestNet())
 	}
 	return res
 }

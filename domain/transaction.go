@@ -114,22 +114,20 @@ func (t *HTransaction) IsSucceeded() bool {
 	return t.trans.Description.TransOrd.Action.Value.Value.Success
 }
 
-func (t *HTransaction) GetDestByOpcode(opcode uint32) []*tongo.AccountID {
-	res := make([]*tongo.AccountID, 0, 5)
+func (t *HTransaction) GetMessagesByOpcode(opcode uint32) []*HMessage {
+	res := make([]*HMessage, 0, 5)
 
 	msg := t.InMessage()
 	op := msg.Opcode()
 	if opcode == op {
-		addrs := msg.AllDestAddress()
-		res = append(res, addrs...)
+		res = append(res, msg)
 	}
 
 	oMsgs := t.OutMessages()
 	for _, msg := range oMsgs {
 		op = msg.Opcode()
 		if opcode == op {
-			addrs := msg.AllDestAddress()
-			res = append(res, addrs...)
+			res = append(res, msg)
 		}
 	}
 
@@ -169,12 +167,12 @@ func (f *HTransactionFormatter) AccountId(format string) string {
 }
 
 func (f *HTransactionFormatter) Src() string {
-	addr := f.obj.InMessage().SrcInt()
+	addr := f.obj.InMessage().Src()
 	return fmt.Sprintf("%v", addr)
 }
 
 func (f *HTransactionFormatter) Dest() string {
-	addr := f.obj.InMessage().DestInt()
+	addr := f.obj.InMessage().Dest()
 	return fmt.Sprintf("%v", addr)
 }
 

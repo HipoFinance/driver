@@ -11,6 +11,7 @@ import (
 	"github.com/tonkeeper/tongo"
 	"github.com/tonkeeper/tongo/boc"
 	"github.com/tonkeeper/tongo/liteapi"
+	"github.com/tonkeeper/tongo/tlb"
 	tgwallet "github.com/tonkeeper/tongo/wallet"
 )
 
@@ -21,55 +22,94 @@ const (
 
 type JettonWalletInteractor struct {
 	client            *liteapi.Client
+	memoInteractor    *MemoInteractor
 	jwalletRepository *repository.JettonWalletRepository
 	driverWallet      *tgwallet.Wallet
 }
 
 func NewJettonWalletInteractor(client *liteapi.Client,
+	memoInteractor *MemoInteractor,
 	jwalletRepository *repository.JettonWalletRepository,
 	driverWallet *tgwallet.Wallet) *JettonWalletInteractor {
 	interactor := &JettonWalletInteractor{
 		client:            client,
+		memoInteractor:    memoInteractor,
 		jwalletRepository: jwalletRepository,
 		driverWallet:      driverWallet,
 	}
 	return interactor
 }
 
-func (interactor *JettonWalletInteractor) ExtractJettonWallets(accountId tongo.AccountID) (map[string]domain.JettonWallet, error) {
+func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount tongo.AccountID) (map[string]domain.JettonWallet, error) {
 
 	var FoundWallets = make(map[string]domain.JettonWallet, 50)
 
-	// Find las transactions of the account
-	trans, err := interactor.client.GetLastTransactions(context.Background(), accountId, 50)
+	// Read the latest processed transaction info
+	latestProcessedHash, err := interactor.memoInteractor.GetLatestProcessedHash()
+	if err != nil {
+		fmt.Printf("Failed to get last processed hash - %v\n", err.Error())
+		return nil, err
+	}
+
+	// Get last transactions of the treasury account, sorted decently by time.
+	trans, err := interactor.client.GetLastTransactions(context.Background(), treasuryAccount, 50)
 	if err != nil {
 		fmt.Printf("Failed to get last transactions - %v\n", err.Error())
 		return nil, err
 	}
 
-	var lastHash tongo.Bits256
-	for err == nil && len(trans) > 0 {
+	// Keep the first processing transaction's hash, so that in next call, stop searching through the processed transactions.
+	var firstTrans *domain.HTransaction
+	firstTransHash := ""
+	if len(trans) > 0 {
+		firstTrans = domain.NewHTransaction(&trans[0].Transaction)
+		htf := domain.NewHTransactionFormatter(firstTrans)
+		firstTransHash = htf.Hash()
+	}
+
+	// Start processing transactions
+	var hash tongo.Bits256
+	reachEnd := firstTransHash == latestProcessedHash
+	if reachEnd {
+		log.Printf("No new transaction to be processed.\n")
+	}
+
+	for err == nil && len(trans) > 0 && !reachEnd {
+		index := findLastUnprocessed(trans, latestProcessedHash)
+		reachEnd = index < len(trans)
+		if reachEnd {
+			trans = trans[0:index]
+		}
+
 		wallets := findDestByOpcode(trans, OpcodeSaveCoin)
 		for _, w := range wallets {
 			FoundWallets[w.Address] = w
 		}
 
-		// Extract the Lt and the Hash of last transaction
-		lastLt := trans[len(trans)-1].Lt
-		lastHash.FromHex(trans[len(trans)-1].Hash().Hex())
+		// If the latest processed transaction is not reached,
+		if !reachEnd {
+			// Extract the Lt and the Hash of last transaction
+			lt := trans[len(trans)-1].Lt
+			hash.FromHex(trans[len(trans)-1].Hash().Hex())
 
-		// Extract previous transactions. GetTransactions function returns 16 items by max, this is why 16 is passed for the count parameter.
-		trans, err = interactor.client.GetTransactions(context.Background(), 16, accountId, lastLt, lastHash)
-		if err != nil {
-			log.Printf("Failed to get transactions - %v\n", err.Error())
-			fmt.Printf("❌ No wallet is kept due to error: %v", err.Error())
-			return nil, err
-		}
+			// Extract previous transactions. GetTransactions function returns 16 items by max, this is why 16 is passed for the count parameter.
+			trans, err = interactor.client.GetTransactions(context.Background(), 16, treasuryAccount, lt, hash)
+			if err != nil {
+				log.Printf("Failed to get transactions - %v\n", err.Error())
+				fmt.Printf("❌ No wallet is kept due to error: %v", err.Error())
+				return nil, err
+			}
 
-		// Remove the first element as it's already processed in previous loop
-		if len(trans) > 0 {
-			trans = trans[1:]
+			// Remove the first element as it's already processed in previous loop
+			if len(trans) > 0 {
+				trans = trans[1:]
+			}
 		}
+	}
+
+	// Keep the first hash as the latest processed hash.
+	if firstTransHash != "" && firstTransHash != latestProcessedHash {
+		interactor.memoInteractor.SetLatestProcessedHash(firstTransHash)
 	}
 
 	return FoundWallets, nil
@@ -77,7 +117,7 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(accountId tongo.A
 
 func (interactor *JettonWalletInteractor) Store(wallets map[string]domain.JettonWallet) error {
 	for _, wallet := range wallets {
-		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.Info)
+		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.Info)
 		if err != nil {
 			log.Printf("Failed to insert jetton wallet record - %v\n", err.Error())
 			return err
@@ -154,19 +194,50 @@ func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID) error
 	return nil
 }
 
+func findLastUnprocessed(trans []tongo.Transaction, lastHash string) int {
+	for i, t := range trans {
+		ht := domain.NewHTransaction(&t.Transaction)
+		htf := domain.NewHTransactionFormatter(ht)
+		if htf.Hash() == lastHash {
+			return i
+		}
+	}
+
+	return len(trans)
+}
+
 func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.JettonWallet {
 	wallets := make([]domain.JettonWallet, 0, 1)
 	for _, t := range trans {
 		ht := domain.NewHTransaction(&t.Transaction)
-		dests := ht.GetDestByOpcode(opcode)
+
+		// leave transaction if it's failed
+		if !ht.IsSucceeded() {
+			continue
+		}
+
+		msgs := ht.GetMessagesByOpcode(opcode)
 		info := domain.RelatedTransactionInfo{
 			Value: ht.Value(),
 			Time:  ht.UnixTime(),
 			Hash:  ht.Hash().Base64(),
 		}
-		for _, accid := range dests {
+		for _, msg := range msgs {
+			accid := msg.Dest()
+			cell := msg.GetBody()
+			m := domain.SaveCoinMessage{}
+			tlb.Unmarshal(cell, &m)
+
+			// log.Printf(
+			// 	"\n"+
+			// 		"        opcode = %x\n"+
+			// 		"      query id = %x\n"+
+			// 		"        amount = %v\n"+
+			// 		"   round since =%v\n"+
+			// 		" return excess = %v\n", m.Opcode, m.QuieryId, m.Amount, m.RoundSince, m.ReturnExcess)
+
 			addr := accid.ToHuman(true, domain.IsTestNet())
-			wallets = append(wallets, domain.JettonWallet{Address: addr, Info: info, CreateTime: time.Now()})
+			wallets = append(wallets, domain.JettonWallet{Address: addr, RoundSince: m.RoundSince, Info: info, CreateTime: time.Now()})
 		}
 	}
 

@@ -3,8 +3,8 @@ package domain
 import (
 	"crypto/ed25519"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -141,7 +141,8 @@ func initializeVariables() error {
 }
 
 func readMnemonicFile(filePath string) (string, error) {
-	fileContent, err := ioutil.ReadFile(filePath)
+
+	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Printf("Failed to read mmnemonic file - %v\n", err.Error())
 		return "", err

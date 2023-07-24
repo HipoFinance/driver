@@ -24,6 +24,13 @@ func (m *HMessage) Opcode() uint32 {
 	return uint32(opcode)
 }
 
+func (m *HMessage) GetBody() *boc.Cell {
+	body, _ := m.msg.Body.Value.MarshalJSON()
+	cell := boc.NewCell()
+	cell.UnmarshalJSON(body)
+	return cell
+}
+
 func (m *HMessage) ImportFee() tlb.Grams {
 	var fee tlb.Grams
 	fee = 0
@@ -60,7 +67,44 @@ func (m *HMessage) Value() tlb.Grams {
 	return value
 }
 
-func (m *HMessage) SrcInt() *tongo.AccountID {
+func (m *HMessage) Src() *tongo.AccountID {
+	src := m.srcInt()
+	if src != nil {
+		return src
+	}
+
+	src = m.srcExtIn()
+	if src != nil {
+		return src
+	}
+	src = m.srcExtOut()
+	if src != nil {
+		return src
+	}
+
+	return nil
+}
+
+func (m *HMessage) Dest() *tongo.AccountID {
+	dest := m.destInt()
+	if dest != nil {
+		return dest
+	}
+
+	dest = m.destExtIn()
+	if dest != nil {
+		return dest
+	}
+
+	dest = m.destExtOut()
+	if dest != nil {
+		return dest
+	}
+
+	return nil
+}
+
+func (m *HMessage) srcInt() *tongo.AccountID {
 	value := tlb.MsgAddress{}
 	if m.msg.Info.IntMsgInfo != nil {
 		value = m.msg.Info.IntMsgInfo.Src
@@ -69,7 +113,7 @@ func (m *HMessage) SrcInt() *tongo.AccountID {
 	return acntId
 }
 
-func (m *HMessage) DestInt() *tongo.AccountID {
+func (m *HMessage) destInt() *tongo.AccountID {
 	value := tlb.MsgAddress{}
 	if m.msg.Info.IntMsgInfo != nil {
 		value = m.msg.Info.IntMsgInfo.Dest
@@ -78,7 +122,7 @@ func (m *HMessage) DestInt() *tongo.AccountID {
 	return acntId
 }
 
-func (m *HMessage) SrcExtIn() *tongo.AccountID {
+func (m *HMessage) srcExtIn() *tongo.AccountID {
 	value := tlb.MsgAddress{}
 	if m.msg.Info.ExtInMsgInfo != nil {
 		value = m.msg.Info.ExtInMsgInfo.Src
@@ -87,7 +131,7 @@ func (m *HMessage) SrcExtIn() *tongo.AccountID {
 	return acntId
 }
 
-func (m *HMessage) DestExtIn() *tongo.AccountID {
+func (m *HMessage) destExtIn() *tongo.AccountID {
 	value := tlb.MsgAddress{}
 	if m.msg.Info.ExtInMsgInfo != nil {
 		value = m.msg.Info.ExtInMsgInfo.Dest
@@ -96,7 +140,7 @@ func (m *HMessage) DestExtIn() *tongo.AccountID {
 	return acntId
 }
 
-func (m *HMessage) SrcExtOut() *tongo.AccountID {
+func (m *HMessage) srcExtOut() *tongo.AccountID {
 	value := tlb.MsgAddress{}
 	if m.msg.Info.ExtOutMsgInfo != nil {
 		value = m.msg.Info.ExtOutMsgInfo.Src
@@ -105,35 +149,13 @@ func (m *HMessage) SrcExtOut() *tongo.AccountID {
 	return acntId
 }
 
-func (m *HMessage) DestExtOut() *tongo.AccountID {
+func (m *HMessage) destExtOut() *tongo.AccountID {
 	value := tlb.MsgAddress{}
 	if m.msg.Info.ExtOutMsgInfo != nil {
 		value = m.msg.Info.ExtOutMsgInfo.Dest
 	}
 	acntId, _ := tongo.AccountIDFromTlb(value)
 	return acntId
-}
-
-// @TODO: Check if there is only one destination address for any message, return one AccountId rather than an array
-func (m *HMessage) AllDestAddress() []*tongo.AccountID {
-	res := make([]*tongo.AccountID, 0, 1)
-
-	accid := m.DestInt()
-	if accid != nil {
-		res = append(res, accid)
-	}
-
-	accid = m.DestExtIn()
-	if accid != nil {
-		res = append(res, accid)
-	}
-
-	accid = m.DestExtOut()
-	if accid != nil {
-		res = append(res, accid)
-	}
-
-	return res
 }
 
 //---------------------------------

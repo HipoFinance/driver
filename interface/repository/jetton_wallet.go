@@ -11,26 +11,26 @@ import (
 const (
 	sqlJWalletInsertIfNotExists = `
 	insert into jwallets as c (
-			address, info, create_time, notify_time
+			address, round_since, info, create_time, notify_time
 		)
 		values (
-			$1, $2::jsonb, now(), null
+			$1, $2, $3::jsonb, now(), null
 		)
-	on conflict (address) do
+	on conflict (address, round_since) do
 		update set
-			info = $2::jsonb
+			info = $3::jsonb
 `
 
 	sqlJWalletFind = `
 	select
-		address, info, create_time, notify_time
+		address, round_since, info, create_time, notify_time
 	from jwallets
 	where address = $1
 `
 
 	sqlJWalletFindAllNotNotified = `
 	select
-		address, info, create_time, notify_time
+		address, round_since, info, create_time, notify_time
 	from jwallets
 	where notify_time is null
 `
@@ -59,7 +59,7 @@ func readJettonWallet(scan func(...interface{}) error) (interface{}, error) {
 	r := domain.JettonWallet{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &infoJson, &r.CreateTime, &r.NotifyTime,
+		&r.Address, &r.RoundSince, &infoJson, &r.CreateTime, &r.NotifyTime,
 	)
 	if err != nil {
 		return &r, err
@@ -72,21 +72,25 @@ func readAllJettonWallets(memo interface{}, scan func(...interface{}) error) (in
 	r := domain.JettonWallet{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &infoJson, &r.CreateTime, &r.NotifyTime,
+		&r.Address, &r.RoundSince, &infoJson, &r.CreateTime, &r.NotifyTime,
 	)
+	if err == nil {
+		err = json.Unmarshal(infoJson, &r.Info)
+	}
+
 	list := memo.([]domain.JettonWallet)
 	list = append(list, r)
 	return list, err
 }
 
-func (repo *JettonWalletRepository) InsertIfNotExists(address string, info domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
+func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince uint32, info domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
 
 	infoJson, _ := json.Marshal(info)
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query: sqlJWalletInsertIfNotExists,
 			Args: []interface{}{
-				address, infoJson,
+				address, roundSince, infoJson,
 			},
 			Affect: 1,
 		},
@@ -136,61 +140,3 @@ func (repo *JettonWalletRepository) UpdateNotified(address string, timestamp tim
 	})
 	return err
 }
-
-// func (repo *BlockRepository) SetVerified(billId uuid.UUID, reference string) error {
-// 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
-// 		{
-// 			Query:  sqlBlockSetVerified,
-// 			Args:   []interface{}{billId, reference},
-// 			Affect: 1,
-// 		},
-// 	})
-
-// 	return err
-// }
-
-// func (repo *BlockRepository) SetReversing(billId uuid.UUID, reference string) error {
-// 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
-// 		{
-// 			Query:  sqlBlockSetReversing,
-// 			Args:   []interface{}{billId, reference},
-// 			Affect: 1,
-// 		},
-// 	})
-
-// 	return err
-// }
-
-// func (repo *BlockRepository) SetReversed(billId uuid.UUID, reference string) error {
-// 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
-// 		{
-// 			Query:  sqlBlockSetReversed,
-// 			Args:   []interface{}{billId, reference},
-// 			Affect: 1,
-// 		},
-// 	})
-
-// 	return err
-// }
-
-// func (repo *BlockRepository) Reset(billId uuid.UUID, reference string) error {
-// 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
-// 		{
-// 			Query:  sqlBlockReset,
-// 			Args:   []interface{}{billId, reference},
-// 			Affect: 1,
-// 		},
-// 	})
-// 	return err
-// }
-
-// func (repo *BlockRepository) Remove(billId uuid.UUID, reference string) error {
-// 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
-// 		{
-// 			Query:  sqlBlockRemove,
-// 			Args:   []interface{}{billId, reference},
-// 			Affect: 1,
-// 		},
-// 	})
-// 	return err
-// }

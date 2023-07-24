@@ -26,8 +26,8 @@ var startCmd = &cobra.Command{
 		defaultDependencyInject()
 
 		findTiker := schedule(find, domain.GetFindInterval(), quit)
-		stakeTicker := schedule(stake, domain.GetStakeInterval(), quit)
-		unstakeTicker := schedule(unstake, domain.GetUnstakeInterval(), quit)
+		// stakeTicker := schedule(stake, domain.GetStakeInterval(), quit)
+		// unstakeTicker := schedule(unstake, domain.GetUnstakeInterval(), quit)
 
 		signal.Ignore()
 		stop := make(chan os.Signal, 1)
@@ -36,8 +36,8 @@ var startCmd = &cobra.Command{
 		log.Printf("Got signal '%v', stopping", s)
 
 		findTiker.Stop()
-		stakeTicker.Stop()
-		unstakeTicker.Stop()
+		// stakeTicker.Stop()
+		// unstakeTicker.Stop()
 	},
 }
 

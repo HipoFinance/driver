@@ -16,12 +16,12 @@ func NewHMessage(msg *tlb.Message) *HMessage {
 	}
 }
 
-func (m *HMessage) Opcode() []byte {
+func (m *HMessage) Opcode() uint32 {
 	body, _ := m.msg.Body.Value.MarshalJSON()
 	cell := boc.NewCell()
 	cell.UnmarshalJSON(body)
-	opcode, _ := cell.ReadBytes(4)
-	return opcode
+	opcode, _ := cell.ReadUint(32)
+	return uint32(opcode)
 }
 
 func (m *HMessage) ImportFee() tlb.Grams {

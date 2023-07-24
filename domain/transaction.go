@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -115,19 +114,19 @@ func (t *HTransaction) IsSucceeded() bool {
 	return t.trans.Description.TransOrd.Action.Value.Value.Success
 }
 
-func (t *HTransaction) GetMessagesHavingOpcode(opcode []byte) []*HMessage {
+func (t *HTransaction) GetMessagesHavingOpcode(opcode uint32) []*HMessage {
 	res := make([]*HMessage, 0, 5)
 
 	msg := t.InMessage()
 	op := msg.Opcode()
-	if bytes.Equal(opcode, op) {
+	if opcode == op {
 		res = append(res, msg)
 	}
 
 	oMsgs := t.OutMessages()
 	for _, msg := range oMsgs {
 		op = msg.Opcode()
-		if bytes.Equal(opcode, op) {
+		if opcode == op {
 			res = append(res, msg)
 		}
 	}

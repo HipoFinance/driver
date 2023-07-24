@@ -36,7 +36,7 @@ func (interactor *JettonWalletInteractor) FindJettonWallets(accountId tongo.Acco
 	var FoundWallets = make(map[string]domain.JettonWallet, 50)
 
 	// Find las transactions of the account
-	trans, err := interactor.client.GetLastTransactions(context.Background(), accountId, 20)
+	trans, err := interactor.client.GetLastTransactions(context.Background(), accountId, 50)
 	if err != nil {
 		fmt.Printf("Failed to get last transactions - %v\n", err.Error())
 		return nil, err
@@ -104,6 +104,7 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 			continue
 		}
 
+		// @TODO: The round-since value must be considered as a condition whether to call stakeCoin or not.
 		err = interactor.stakeCoin(acid)
 		if err != nil {
 			log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
@@ -119,7 +120,7 @@ func (interactor *JettonWalletInteractor) stakeCoin(acid tongo.AccountID) error 
 	opcode := uint64(0x4cae3ab1)
 
 	queryId := uint64(time.Now().Unix())
-	roundSince := uint64(0)
+	roundSince := uint64(0) // @TODO: round-since value must be evaluated here
 
 	cell := boc.NewCell()
 	cell.WriteUint(opcode, 32)     // opcode
@@ -149,7 +150,7 @@ func (interactor *JettonWalletInteractor) stakeCoin(acid tongo.AccountID) error 
 func extractWallets(trans []tongo.Transaction, wallets map[string]domain.JettonWallet) (uint, error) {
 	var count uint = 0
 	var err error = nil
-	var DesiredOpcode = []byte{0x7f, 0x30, 0xee, 0x55} // 0x7f30ee55 internal_transfer
+	var DesiredOpcode = uint32(0x7f30ee55) // internal_transfer
 
 	for _, t := range trans {
 		ht := domain.NewHTransaction(&t.Transaction)

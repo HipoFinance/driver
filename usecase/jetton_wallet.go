@@ -21,21 +21,24 @@ const (
 )
 
 type JettonWalletInteractor struct {
-	client            *liteapi.Client
-	memoInteractor    *MemoInteractor
-	jwalletRepository *repository.JettonWalletRepository
-	driverWallet      *tgwallet.Wallet
+	client             *liteapi.Client
+	memoInteractor     *MemoInteractor
+	contractInteractor *ContractInteractor
+	jwalletRepository  *repository.JettonWalletRepository
+	driverWallet       *tgwallet.Wallet
 }
 
 func NewJettonWalletInteractor(client *liteapi.Client,
 	memoInteractor *MemoInteractor,
+	contractInteractor *ContractInteractor,
 	jwalletRepository *repository.JettonWalletRepository,
 	driverWallet *tgwallet.Wallet) *JettonWalletInteractor {
 	interactor := &JettonWalletInteractor{
-		client:            client,
-		memoInteractor:    memoInteractor,
-		jwalletRepository: jwalletRepository,
-		driverWallet:      driverWallet,
+		client:             client,
+		memoInteractor:     memoInteractor,
+		contractInteractor: contractInteractor,
+		jwalletRepository:  jwalletRepository,
+		driverWallet:       driverWallet,
 	}
 	return interactor
 }
@@ -137,7 +140,7 @@ func (interactor *JettonWalletInteractor) LoadNotNotified() ([]domain.JettonWall
 	return wallets, nil
 }
 
-func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []domain.JettonWallet) {
+func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []domain.JettonWallet) error {
 	// @TODO: The round-since value must be considered as a condition whether to call stakeCoin or not.
 	//
 	//	start from sooner roundSince
@@ -145,22 +148,50 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 	//  extract participations field
 	//  check if the desired round-since does exist in participations or not
 	//  if exists, skip it, otherwise send stake-coin message
+
+	// Split the wallets based on their round-since
+	splitted := make(map[uint32][]domain.JettonWallet, 0)
 	for _, wallet := range wallets {
-		accid, err := tongo.AccountIDFromBase64Url(wallet.Address)
-		if err != nil {
-			log.Printf("Failed to parse wallet address %v - %v\n", wallet.Address, err.Error())
+		roundSince := wallet.RoundSince
+		if _, exist := splitted[roundSince]; exist {
+			splitted[roundSince] = append(splitted[roundSince], wallet)
+		} else {
+			subList := make([]domain.JettonWallet, 0, 1)
+			subList = append(subList, wallet)
+			splitted[roundSince] = subList
+		}
+	}
+
+	treasuryState, err := interactor.contractInteractor.GetTreasuryState()
+	if err != nil {
+		log.Printf("Failed to send message to wallets - %v\n", err.Error())
+		return err
+	}
+
+	for roundSince, subList := range splitted {
+		if _, exist := treasuryState.Participations[roundSince]; exist {
 			continue
 		}
 
-		err = interactor.stakeCoin(accid)
-		if err != nil {
-			log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
-			continue
-		} else {
-			log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
-			interactor.jwalletRepository.UpdateNotified(wallet.Address, time.Now())
+		for _, wallet := range subList {
+			accid, err := tongo.AccountIDFromBase64Url(wallet.Address)
+			if err != nil {
+				log.Printf("Failed to parse wallet address %v - %v\n", wallet.Address, err.Error())
+				continue
+			}
+
+			err = interactor.stakeCoin(accid)
+			if err != nil {
+				log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
+				continue
+			} else {
+				log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
+				interactor.jwalletRepository.UpdateNotified(wallet.Address, time.Now())
+			}
 		}
 	}
+
+	return nil
 }
 
 func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID) error {
@@ -182,7 +213,7 @@ func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID) error
 		Code:    nil,       //  *boc.Cell
 		Data:    nil,       //  *boc.Cell
 		Bounce:  true,      //  bool
-		Mode:    0,         //  uint8
+		Mode:    0,         //  uint8	@TOCLEAR: What value should be used?
 	}
 
 	err := interactor.driverWallet.Send(context.Background(), msg)

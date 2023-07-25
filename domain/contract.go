@@ -8,10 +8,11 @@ import (
 )
 
 var (
-	ErrorInvalidTreasuryState = fmt.Errorf("invalid treasury state")
+	ErrorUnexpectedTreasuryState = fmt.Errorf("unexpected treasury state")
+	ErrorUnexpectedWalletState   = fmt.Errorf("unexpected wallet state")
 )
 
-// @TOCLEAR: What are the type/structure of the marked fields?
+// @TODO: Read the commented-out fields
 type TreasuryState struct {
 	TotalCoins          big.Int
 	TotalTokens         big.Int
@@ -20,13 +21,19 @@ type TreasuryState struct {
 	TotalValidatorStake big.Int
 	Participations      map[uint32]tlb.Any
 	Stopped             bool
-	// WalletCode          string // ?
-	// LoanCode            string // ?
-	// Driver              string // ?
-	// Halter              string // ?
-	// Governor            string // ?
-	// ProposedGovernor    string // ?
+	// WalletCode          tlb.Cell
+	// LoanCode            tlb.Cell
+	// Driver              tlb.Slice
+	// Halter              tlb.Slice
+	// Governor            tlb.Slice
+	// ProposedGovernor    tlb.Cell
 	RewardShare int64
-	// RewardHistory       string // ?
-	// Content             string // ?
+	// RewardHistory       tlb.Cell
+	// Content             tlb.Cell
+}
+
+type WalletState struct {
+	Tokens    big.Int
+	Staking   map[uint32]tlb.Any
+	Unstaking big.Int
 }

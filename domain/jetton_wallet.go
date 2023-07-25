@@ -6,10 +6,19 @@ import (
 	"github.com/tonkeeper/tongo/tlb"
 )
 
+const (
+	JWalletStateNew     = "new"
+	JWalletStateOngoing = "ongoing"
+	JWalletStateDone    = "done"
+	JWalletStateSkipped = "skipped"
+	JWalletStateError   = "error"
+)
+
 type JettonWallet struct {
 	Address    string                 `json:"address"`
 	RoundSince uint32                 `json:"round_since"`
-	MsgHash    string                 `json:"msg_hash"`
+	Hash       string                 `json:"hash"`
+	State      string                 `json:"state"`
 	Info       RelatedTransactionInfo `json:"info"`
 	CreateTime time.Time              `json:"create_time"`
 	NotifyTime *time.Time             `json:"notify_time"`

@@ -122,7 +122,7 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 
 func (interactor *JettonWalletInteractor) Store(wallets []domain.JettonWallet) error {
 	for _, wallet := range wallets {
-		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.MsgHash, wallet.Info)
+		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.Hash, wallet.Info)
 		if err != nil {
 			log.Printf("Failed to insert jetton wallet record - %v\n", err.Error())
 			return err
@@ -133,7 +133,7 @@ func (interactor *JettonWalletInteractor) Store(wallets []domain.JettonWallet) e
 
 func (interactor *JettonWalletInteractor) LoadNotNotified() ([]domain.JettonWallet, error) {
 
-	wallets, err := interactor.jwalletRepository.FindAllNotNotified()
+	wallets, err := interactor.jwalletRepository.FindAllToNotify()
 	if err != nil {
 		log.Printf("Failed to load jetton wallet records - %v\n", err.Error())
 		return nil, err
@@ -166,7 +166,7 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 
 	treasuryState, err := interactor.contractInteractor.GetTreasuryState()
 	if err != nil {
-		log.Printf("Failed to send message to wallets - %v\n", err.Error())
+		log.Printf("Failed to get treasury state - %v\n", err.Error())
 		return err
 	}
 
@@ -182,22 +182,31 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 				continue
 			}
 
-			// @TODO: add state for jetton-wallet record: new, ongoing, done, error
+			interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateOngoing)
+
 			// @TODO: check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
+			walletState, err := interactor.contractInteractor.GetWalletState(accid)
+			if err != nil {
+				log.Printf("Failed to get wallet state - %v\n", err.Error())
+				interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateError)
+				continue
+			}
+
+			if _, exist := walletState.Staking[roundSince]; !exist {
+				log.Printf("Wallet is not waiting for any stake-coin.")
+				interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateSkipped)
+				continue
+			}
+
 			err = interactor.stakeCoin(accid, roundSince)
 			if err != nil {
 				log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
+				interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateError)
 				continue
 			} else {
-				// @TODO: update the wallet regarding to round-since
-				err = interactor.jwalletRepository.UpdateNotified(wallet.Address, roundSince, wallet.MsgHash, time.Now())
-				if err != nil {
-					log.Printf("Failed to update wallet address %v - %v\n", wallet.Address, err.Error())
-					continue
-				} else {
-					// @TODO: organize log messages, and shorten them.
-					log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
-				}
+				interactor.jwalletRepository.SetNotified(wallet.Address, roundSince, wallet.Hash, time.Now())
+				// @TODO: organize log messages, and shorten them.
+				log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
 			}
 		}
 	}
@@ -281,7 +290,7 @@ func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.JettonW
 			wallets = append(wallets, domain.JettonWallet{
 				Address:    addr,
 				RoundSince: m.RoundSince,
-				MsgHash:    ht.Formatter().Hash(),
+				Hash:       ht.Formatter().Hash(),
 				Info:       info,
 				CreateTime: time.Now()})
 		}

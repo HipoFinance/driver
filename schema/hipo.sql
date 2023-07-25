@@ -6,12 +6,13 @@ create table jwallets
 (
     address     text        not null,
     round_since integer     not null,
-    msg_hash    text        not null,
+    hash        text        not null,
+    state       text        not null,
     info        jsonb       not null,
     create_time timestamptz not null,
     notify_time timestamptz,
 
-    primary key (address, round_since, msg_hash)
+    primary key (address, round_since, hash)
 );
 
 create table memos

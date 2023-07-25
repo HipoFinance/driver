@@ -11,34 +11,40 @@ import (
 const (
 	sqlJWalletInsertIfNotExists = `
 	insert into jwallets as c (
-			address, round_since, msg_hash, info, create_time, notify_time
+			address, round_since, hash, state, info, create_time, notify_time
 		)
 		values (
-			$1, $2, $3, $4::jsonb, now(), null
+			$1, $2, $3, 'new', $4::jsonb, now(), null
 		)
-	on conflict (address, round_since, msg_hash) do
+	on conflict (address, round_since, hash) do
 		update set
 			info = $4::jsonb
 `
 
 	sqlJWalletFind = `
 	select
-		address, round_since, msg_hash, info, create_time, notify_time
+		address, round_since, hash, state, info, create_time, notify_time
 	from jwallets
-	where address = $1 and round_since = $2 and msg_hash = $3
+	where address = $1 and round_since = $2 and hash = $3
 `
 
-	sqlJWalletFindAllNotNotified = `
+	sqlJWalletFindAllToNotify = `
 	select
-		address, round_since, msg_hash, info, create_time, notify_time
+		address, round_since, hash, state, info, create_time, notify_time
 	from jwallets
-	where notify_time is null
+	where notify_time is null and state in ('new', 'error')
 `
 
-	sqlJWalletNotified = `
+	sqlJWalletSetState = `
 	update jwallets
-		set notify_time = $4
-	where address = $1 and round_since = $2 and msg_hash = $3
+		set state = $4
+	where address = $1 and round_since = $2 and hash = $3
+`
+
+	sqlJWalletSetNotified = `
+	update jwallets
+		set notify_time = $4, state = 'done'
+	where address = $1 and round_since = $2 and hash = $3
 `
 )
 
@@ -54,7 +60,7 @@ func readJettonWallet(scan func(...interface{}) error) (interface{}, error) {
 	r := domain.JettonWallet{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &r.MsgHash, &infoJson, &r.CreateTime, &r.NotifyTime,
+		&r.Address, &r.RoundSince, &r.Hash, &r.State, &infoJson, &r.CreateTime, &r.NotifyTime,
 	)
 	if err != nil {
 		return &r, err
@@ -67,7 +73,7 @@ func readAllJettonWallets(memo interface{}, scan func(...interface{}) error) (in
 	r := domain.JettonWallet{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &r.MsgHash, &infoJson, &r.CreateTime, &r.NotifyTime,
+		&r.Address, &r.RoundSince, &r.Hash, &r.State, &infoJson, &r.CreateTime, &r.NotifyTime,
 	)
 	if err == nil {
 		err = json.Unmarshal(infoJson, &r.Info)
@@ -78,20 +84,20 @@ func readAllJettonWallets(memo interface{}, scan func(...interface{}) error) (in
 	return list, err
 }
 
-func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince uint32, msgHash string, info domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
+func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince uint32, hash string, info domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
 
 	infoJson, _ := json.Marshal(info)
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query: sqlJWalletInsertIfNotExists,
 			Args: []interface{}{
-				address, roundSince, msgHash, infoJson,
+				address, roundSince, hash, infoJson,
 			},
 			Affect: 1,
 		},
 		{
 			Query:   sqlJWalletFind,
-			Args:    []interface{}{address, roundSince, msgHash},
+			Args:    []interface{}{address, roundSince, hash},
 			ReadOne: readJettonWallet,
 		},
 	})
@@ -100,11 +106,11 @@ func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince
 	return result, err
 }
 
-func (repo *JettonWalletRepository) Find(address string, roundSince uint32, msgHash string) (*domain.JettonWallet, error) {
+func (repo *JettonWalletRepository) Find(address string, roundSince uint32, hash string) (*domain.JettonWallet, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlJWalletFind,
-			Args:    []interface{}{address, roundSince, msgHash},
+			Args:    []interface{}{address, roundSince, hash},
 			ReadOne: readJettonWallet,
 		},
 	})
@@ -112,10 +118,10 @@ func (repo *JettonWalletRepository) Find(address string, roundSince uint32, msgH
 	return result, err
 }
 
-func (repo *JettonWalletRepository) FindAllNotNotified() ([]domain.JettonWallet, error) {
+func (repo *JettonWalletRepository) FindAllToNotify() ([]domain.JettonWallet, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
-			Query:   sqlJWalletFindAllNotNotified,
+			Query:   sqlJWalletFindAllToNotify,
 			Args:    []interface{}{},
 			Init:    make([]domain.JettonWallet, 0),
 			ReadAll: readAllJettonWallets,
@@ -125,11 +131,22 @@ func (repo *JettonWalletRepository) FindAllNotNotified() ([]domain.JettonWallet,
 	return result, err
 }
 
-func (repo *JettonWalletRepository) UpdateNotified(address string, roundSince uint32, msgHash string, timestamp time.Time) error {
+func (repo *JettonWalletRepository) SetState(address string, roundSince uint32, hash string, state string) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
-			Query:  sqlJWalletNotified,
-			Args:   []interface{}{address, roundSince, msgHash, timestamp},
+			Query:  sqlJWalletSetState,
+			Args:   []interface{}{address, roundSince, hash, state},
+			Affect: 1,
+		},
+	})
+	return err
+}
+
+func (repo *JettonWalletRepository) SetNotified(address string, roundSince uint32, hash string, timestamp time.Time) error {
+	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
+		{
+			Query:  sqlJWalletSetNotified,
+			Args:   []interface{}{address, roundSince, hash, timestamp},
 			Affect: 1,
 		},
 	})

@@ -158,6 +158,10 @@ func (m *HMessage) destExtOut() *tongo.AccountID {
 	return acntId
 }
 
+func (m *HMessage) Formatter() *HMessageFormatter {
+	return NewHMessageFormatter(m)
+}
+
 //---------------------------------
 
 type HMessageFormatter struct {

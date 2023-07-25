@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -114,24 +113,32 @@ func (t *HTransaction) IsSucceeded() bool {
 	return t.trans.Description.TransOrd.Action.Value.Value.Success
 }
 
-func (t *HTransaction) GetMessagesByOpcode(opcode uint32) []*HMessage {
-	res := make([]*HMessage, 0, 5)
-
+func (t *HTransaction) GetInMessagesByOpcode(opcode uint32) *HMessage {
 	msg := t.InMessage()
 	op := msg.Opcode()
 	if opcode == op {
-		res = append(res, msg)
+		return msg
 	}
+
+	return nil
+}
+
+func (t *HTransaction) GetOutMessagesByOpcode(opcode uint32) []*HMessage {
+	res := make([]*HMessage, 0, 5)
 
 	oMsgs := t.OutMessages()
 	for _, msg := range oMsgs {
-		op = msg.Opcode()
+		op := msg.Opcode()
 		if opcode == op {
 			res = append(res, msg)
 		}
 	}
 
 	return res
+}
+
+func (t *HTransaction) Formatter() *HTransactionFormatter {
+	return NewHTransactionFormatter(t)
 }
 
 //---------------------------------
@@ -148,8 +155,7 @@ func NewHTransactionFormatter(obj *HTransaction) *HTransactionFormatter {
 }
 
 func (f *HTransactionFormatter) Hash() string {
-	buf := f.obj.Hash()
-	return base64.URLEncoding.EncodeToString(buf[:])
+	return f.obj.Hash().Hex()
 }
 
 func (f *HTransactionFormatter) AccountId(format string) string {

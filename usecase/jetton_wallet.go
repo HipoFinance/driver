@@ -66,8 +66,7 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 	firstTransHash := ""
 	if len(trans) > 0 {
 		firstTrans = domain.NewHTransaction(&trans[0].Transaction)
-		htf := domain.NewHTransactionFormatter(firstTrans)
-		firstTransHash = htf.Hash()
+		firstTransHash = firstTrans.Formatter().Hash()
 	}
 
 	// Start processing transactions
@@ -123,7 +122,7 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 
 func (interactor *JettonWalletInteractor) Store(wallets map[string]domain.JettonWallet) error {
 	for _, wallet := range wallets {
-		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.Info)
+		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.MsgHash, wallet.Info)
 		if err != nil {
 			log.Printf("Failed to insert jetton wallet record - %v\n", err.Error())
 			return err
@@ -190,7 +189,7 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 				continue
 			} else {
 				// @TODO: update the wallet regarding to round-since
-				err = interactor.jwalletRepository.UpdateNotified(wallet.Address, roundSince, time.Now())
+				err = interactor.jwalletRepository.UpdateNotified(wallet.Address, roundSince, wallet.MsgHash, time.Now())
 				if err != nil {
 					log.Printf("Failed to update wallet address %v - %v\n", wallet.Address, err.Error())
 					continue
@@ -236,8 +235,7 @@ func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID, round
 func findLastUnprocessed(trans []tongo.Transaction, lastHash string) int {
 	for i, t := range trans {
 		ht := domain.NewHTransaction(&t.Transaction)
-		htf := domain.NewHTransactionFormatter(ht)
-		if htf.Hash() == lastHash {
+		if ht.Formatter().Hash() == lastHash {
 			return i
 		}
 	}
@@ -255,28 +253,36 @@ func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.JettonW
 			continue
 		}
 
-		msgs := ht.GetMessagesByOpcode(opcode)
+		msgs := ht.GetOutMessagesByOpcode(opcode)
+		if len(msgs) > 1 {
+			log.Printf("Oops! more than one msg found!")
+			continue
+		}
+
+		var msg *domain.HMessage = nil
+		if len(msgs) == 1 {
+			msg = msgs[0]
+		}
+
 		info := domain.RelatedTransactionInfo{
 			Value: ht.Value(),
 			Time:  ht.UnixTime(),
-			Hash:  ht.Hash().Base64(),
+			Hash:  ht.Formatter().Hash(),
 		}
-		for _, msg := range msgs {
+
+		if msg != nil {
 			accid := msg.Dest()
 			cell := msg.GetBody()
 			m := domain.SaveCoinMessage{}
 			tlb.Unmarshal(cell, &m)
 
-			// log.Printf(
-			// 	"\n"+
-			// 		"        opcode = %x\n"+
-			// 		"      query id = %x\n"+
-			// 		"        amount = %v\n"+
-			// 		"   round since =%v\n"+
-			// 		" return excess = %v\n", m.Opcode, m.QuieryId, m.Amount, m.RoundSince, m.ReturnExcess)
-
 			addr := accid.ToHuman(true, domain.IsTestNet())
-			wallets = append(wallets, domain.JettonWallet{Address: addr, RoundSince: m.RoundSince, Info: info, CreateTime: time.Now()})
+			wallets = append(wallets, domain.JettonWallet{
+				Address:    addr,
+				RoundSince: m.RoundSince,
+				MsgHash:    ht.Formatter().Hash(),
+				Info:       info,
+				CreateTime: time.Now()})
 		}
 	}
 

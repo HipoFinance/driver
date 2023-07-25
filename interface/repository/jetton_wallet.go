@@ -11,40 +11,35 @@ import (
 const (
 	sqlJWalletInsertIfNotExists = `
 	insert into jwallets as c (
-			address, round_since, info, create_time, notify_time
+			address, round_since, msg_hash, info, create_time, notify_time
 		)
 		values (
-			$1, $2, $3::jsonb, now(), null
+			$1, $2, $3, $4::jsonb, now(), null
 		)
-	on conflict (address, round_since) do
+	on conflict (address, round_since, msg_hash) do
 		update set
-			info = $3::jsonb
+			info = $4::jsonb
 `
 
 	sqlJWalletFind = `
 	select
-		address, round_since, info, create_time, notify_time
+		address, round_since, msg_hash, info, create_time, notify_time
 	from jwallets
-	where address = $1 and round_since = $2
+	where address = $1 and round_since = $2 and msg_hash = $3
 `
 
 	sqlJWalletFindAllNotNotified = `
 	select
-		address, round_since, info, create_time, notify_time
+		address, round_since, msg_hash, info, create_time, notify_time
 	from jwallets
 	where notify_time is null
 `
 
 	sqlJWalletNotified = `
 	update jwallets
-		set notify_time = $3
-	where address = $1 and round_since = $2
+		set notify_time = $4
+	where address = $1 and round_since = $2 and msg_hash = $3
 `
-
-//	sqlJWalletRemove = `
-//	delete from jwallet where address = $1
-//
-// `
 )
 
 type JettonWalletRepository struct {
@@ -59,7 +54,7 @@ func readJettonWallet(scan func(...interface{}) error) (interface{}, error) {
 	r := domain.JettonWallet{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &infoJson, &r.CreateTime, &r.NotifyTime,
+		&r.Address, &r.RoundSince, &r.MsgHash, &infoJson, &r.CreateTime, &r.NotifyTime,
 	)
 	if err != nil {
 		return &r, err
@@ -72,7 +67,7 @@ func readAllJettonWallets(memo interface{}, scan func(...interface{}) error) (in
 	r := domain.JettonWallet{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &infoJson, &r.CreateTime, &r.NotifyTime,
+		&r.Address, &r.RoundSince, &r.MsgHash, &infoJson, &r.CreateTime, &r.NotifyTime,
 	)
 	if err == nil {
 		err = json.Unmarshal(infoJson, &r.Info)
@@ -83,20 +78,20 @@ func readAllJettonWallets(memo interface{}, scan func(...interface{}) error) (in
 	return list, err
 }
 
-func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince uint32, info domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
+func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince uint32, msgHash string, info domain.RelatedTransactionInfo) (*domain.JettonWallet, error) {
 
 	infoJson, _ := json.Marshal(info)
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query: sqlJWalletInsertIfNotExists,
 			Args: []interface{}{
-				address, roundSince, infoJson,
+				address, roundSince, msgHash, infoJson,
 			},
 			Affect: 1,
 		},
 		{
 			Query:   sqlJWalletFind,
-			Args:    []interface{}{address, roundSince},
+			Args:    []interface{}{address, roundSince, msgHash},
 			ReadOne: readJettonWallet,
 		},
 	})
@@ -105,11 +100,11 @@ func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince
 	return result, err
 }
 
-func (repo *JettonWalletRepository) Find(address string, roundSince uint32) (*domain.JettonWallet, error) {
+func (repo *JettonWalletRepository) Find(address string, roundSince uint32, msgHash string) (*domain.JettonWallet, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlJWalletFind,
-			Args:    []interface{}{address, roundSince},
+			Args:    []interface{}{address, roundSince, msgHash},
 			ReadOne: readJettonWallet,
 		},
 	})
@@ -130,11 +125,11 @@ func (repo *JettonWalletRepository) FindAllNotNotified() ([]domain.JettonWallet,
 	return result, err
 }
 
-func (repo *JettonWalletRepository) UpdateNotified(address string, roundSince uint32, timestamp time.Time) error {
+func (repo *JettonWalletRepository) UpdateNotified(address string, roundSince uint32, msgHash string, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlJWalletNotified,
-			Args:   []interface{}{address, roundSince, timestamp},
+			Args:   []interface{}{address, roundSince, msgHash, timestamp},
 			Affect: 1,
 		},
 	})

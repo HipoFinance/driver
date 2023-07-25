@@ -43,9 +43,9 @@ func NewJettonWalletInteractor(client *liteapi.Client,
 	return interactor
 }
 
-func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount tongo.AccountID) (map[string]domain.JettonWallet, error) {
+func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount tongo.AccountID) ([]domain.JettonWallet, error) {
 
-	var FoundWallets = make(map[string]domain.JettonWallet, 50)
+	var FoundWallets = make([]domain.JettonWallet, 0, 50)
 
 	// Read the latest processed transaction info
 	latestProcessedHash, err := interactor.memoInteractor.GetLatestProcessedHash()
@@ -77,6 +77,7 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 	}
 
 	for err == nil && len(trans) > 0 && !reachEnd {
+		log.Printf("Processing transaction: %v\n", len(trans))
 		index := findLastUnprocessed(trans, latestProcessedHash)
 		reachEnd = index < len(trans)
 		if reachEnd {
@@ -84,9 +85,8 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 		}
 
 		wallets := findDestByOpcode(trans, OpcodeSaveCoin)
-		for _, w := range wallets {
-			FoundWallets[w.Address] = w
-		}
+		FoundWallets = append(FoundWallets, wallets...)
+		log.Printf("Found transaction: %v\n", len(wallets))
 
 		// If the latest processed transaction is not reached,
 		if !reachEnd {
@@ -120,7 +120,7 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 	return FoundWallets, nil
 }
 
-func (interactor *JettonWalletInteractor) Store(wallets map[string]domain.JettonWallet) error {
+func (interactor *JettonWalletInteractor) Store(wallets []domain.JettonWallet) error {
 	for _, wallet := range wallets {
 		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.MsgHash, wallet.Info)
 		if err != nil {
@@ -183,6 +183,7 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 			}
 
 			// @TODO: add state for jetton-wallet record: new, ongoing, done, error
+			// @TODO: check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
 			err = interactor.stakeCoin(accid, roundSince)
 			if err != nil {
 				log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())

@@ -59,13 +59,14 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 	result.TotalValidatorStake.Set(getBigIntValue(stack[4], 0))
 
 	if stack[5].SumType == "VmStkCell" {
-		result.Participations = make(map[uint32]string)
+		result.Participations = make(map[uint32]tlb.Any)
 		cell := stack[5].VmStkCell.Value
-		var x tlb.HashmapE[tlb.Int32, string]
+		var x tlb.Hashmap[tlb.Uint32, tlb.Any]
 		x.UnmarshalTLB(&cell, tlb.NewDecoder())
 
-		// tlb.TlbStructToVmCell()
-		tlb.Unmarshal(&cell, &result.Participations)
+		for i, key := range x.Keys() {
+			result.Participations[uint32(key)] = x.Values()[i]
+		}
 	}
 
 	result.Stopped = stack[6].VmStkTinyInt != 0

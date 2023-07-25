@@ -3,6 +3,8 @@ package domain
 import (
 	"fmt"
 	"math/big"
+
+	"github.com/tonkeeper/tongo/tlb"
 )
 
 var (
@@ -16,7 +18,7 @@ type TreasuryState struct {
 	TotalStaking        big.Int
 	TotalUnstaking      big.Int
 	TotalValidatorStake big.Int
-	Participations      map[uint32]string
+	Participations      map[uint32]tlb.Any
 	Stopped             bool
 	// WalletCode          string // ?
 	// LoanCode            string // ?

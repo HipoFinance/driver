@@ -98,7 +98,7 @@ func unstake() {
 	// jettonWalletInteractor.SendMessageToJettonWallets(wallets)
 }
 
-func printOutWallets(wallets map[string]domain.JettonWallet) {
+func printOutWallets(wallets []domain.JettonWallet) {
 
 	fmt.Printf("------------- FOUND WALLET LIST -----------------\n")
 	i := 1

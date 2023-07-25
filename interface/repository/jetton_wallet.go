@@ -25,7 +25,7 @@ const (
 	select
 		address, round_since, info, create_time, notify_time
 	from jwallets
-	where address = $1
+	where address = $1 and round_since = $2
 `
 
 	sqlJWalletFindAllNotNotified = `
@@ -37,8 +37,8 @@ const (
 
 	sqlJWalletNotified = `
 	update jwallets
-		set notify_time = $2
-	where address = $1
+		set notify_time = $3
+	where address = $1 and round_since = $2
 `
 
 //	sqlJWalletRemove = `
@@ -96,7 +96,7 @@ func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince
 		},
 		{
 			Query:   sqlJWalletFind,
-			Args:    []interface{}{address},
+			Args:    []interface{}{address, roundSince},
 			ReadOne: readJettonWallet,
 		},
 	})
@@ -105,17 +105,17 @@ func (repo *JettonWalletRepository) InsertIfNotExists(address string, roundSince
 	return result, err
 }
 
-// func (repo *BlockRepository) Find(billId uuid.UUID, reference string) (*domain.Block, error) {
-// 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
-// 		{
-// 			Query:   sqlBlockFind,
-// 			Args:    []interface{}{billId, reference},
-// 			ReadOne: readBlock,
-// 		},
-// 	})
-// 	result, _ := results[0].(*domain.Block)
-// 	return result, err
-// }
+func (repo *JettonWalletRepository) Find(address string, roundSince uint32) (*domain.JettonWallet, error) {
+	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
+		{
+			Query:   sqlJWalletFind,
+			Args:    []interface{}{address, roundSince},
+			ReadOne: readJettonWallet,
+		},
+	})
+	result, _ := results[0].(*domain.JettonWallet)
+	return result, err
+}
 
 func (repo *JettonWalletRepository) FindAllNotNotified() ([]domain.JettonWallet, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
@@ -130,11 +130,11 @@ func (repo *JettonWalletRepository) FindAllNotNotified() ([]domain.JettonWallet,
 	return result, err
 }
 
-func (repo *JettonWalletRepository) UpdateNotified(address string, timestamp time.Time) error {
+func (repo *JettonWalletRepository) UpdateNotified(address string, roundSince uint32, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlJWalletNotified,
-			Args:   []interface{}{address, timestamp},
+			Args:   []interface{}{address, roundSince, timestamp},
 			Affect: 1,
 		},
 	})

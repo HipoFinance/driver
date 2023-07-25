@@ -4,7 +4,9 @@ import (
 	"context"
 	"driver/domain"
 	"log"
+	"math/big"
 
+	"github.com/tonkeeper/tongo/boc"
 	"github.com/tonkeeper/tongo/liteapi"
 	"github.com/tonkeeper/tongo/tlb"
 )
@@ -27,12 +29,13 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 	}
 
 	// @TOCLEAR: Which one of the parameters can be null?
+	// @TODO: use big.int for money values
 	if len(stack) != 16 ||
-		stack[0].SumType != "VmStkTinyInt" ||
-		stack[1].SumType != "VmStkTinyInt" ||
-		stack[2].SumType != "VmStkTinyInt" ||
-		stack[3].SumType != "VmStkTinyInt" ||
-		stack[4].SumType != "VmStkTinyInt" ||
+		(stack[0].SumType != "VmStkTinyInt" && stack[0].SumType != "VmStkInt") ||
+		(stack[1].SumType != "VmStkTinyInt" && stack[1].SumType != "VmStkInt") ||
+		(stack[2].SumType != "VmStkTinyInt" && stack[2].SumType != "VmStkInt") ||
+		(stack[3].SumType != "VmStkTinyInt" && stack[3].SumType != "VmStkInt") ||
+		(stack[4].SumType != "VmStkTinyInt" && stack[4].SumType != "VmStkInt") ||
 		(stack[5].SumType != "VmStkCell" && stack[5].SumType != "VmStkNull") ||
 		stack[6].SumType != "VmStkTinyInt" ||
 		(stack[7].SumType != "VmStkCell" && stack[7].SumType != "VmStkNull") ||
@@ -49,15 +52,19 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 
 	result := &domain.TreasuryState{}
 
-	result.TotalCoins = stack[0].VmStkTinyInt
-	result.TotalTokens = stack[1].VmStkTinyInt
-	result.TotalStaking = stack[2].VmStkTinyInt
-	result.TotalUnstaking = stack[3].VmStkTinyInt
-	result.TotalValidatorStake = stack[4].VmStkTinyInt
+	result.TotalCoins.Set(getBigIntValue(stack[0], 0))
+	result.TotalTokens.Set(getBigIntValue(stack[1], 0))
+	result.TotalStaking.Set(getBigIntValue(stack[2], 0))
+	result.TotalUnstaking.Set(getBigIntValue(stack[3], 0))
+	result.TotalValidatorStake.Set(getBigIntValue(stack[4], 0))
 
 	if stack[5].SumType == "VmStkCell" {
 		result.Participations = make(map[uint32]string)
 		cell := stack[5].VmStkCell.Value
+		var x tlb.HashmapE[tlb.Int32, string]
+		x.UnmarshalTLB(&cell, tlb.NewDecoder())
+
+		// tlb.TlbStructToVmCell()
 		tlb.Unmarshal(&cell, &result.Participations)
 	}
 
@@ -65,4 +72,25 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 	result.RewardShare = stack[13].VmStkTinyInt
 
 	return result, nil
+}
+
+func getBigIntValue(stackItem tlb.VmStackValue, defaultValue int64) *big.Int {
+	if stackItem.SumType == "VmStkTinyInt" {
+		return big.NewInt(stackItem.VmStkTinyInt)
+	}
+
+	if stackItem.SumType == "VmStkInt" {
+		var cell boc.Cell
+
+		i257 := stackItem.VmStkInt
+		i257.MarshalTLB(&cell, nil)
+
+		var bi tlb.Int257
+		bi.UnmarshalTLB(&cell, nil)
+
+		result := big.Int(bi)
+		return &result
+	}
+
+	return nil
 }

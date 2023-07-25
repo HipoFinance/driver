@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"math/big"
+)
 
 var (
 	ErrorInvalidTreasuryState = fmt.Errorf("invalid treasury state")
@@ -8,12 +11,12 @@ var (
 
 // @TOCLEAR: What are the type/structure of the marked fields?
 type TreasuryState struct {
-	TotalCoins          int64
-	TotalTokens         int64
-	TotalStaking        int64
-	TotalUnstaking      int64
-	TotalValidatorStake int64
-	Participations      map[uint32]string // ?
+	TotalCoins          big.Int
+	TotalTokens         big.Int
+	TotalStaking        big.Int
+	TotalUnstaking      big.Int
+	TotalValidatorStake big.Int
+	Participations      map[uint32]string
 	Stopped             bool
 	// WalletCode          string // ?
 	// LoanCode            string // ?

@@ -17,7 +17,7 @@ import (
 
 const (
 	OpcodeSaveCoin  = uint32(0x7f30ee55)
-	OpcodeStakeCoin = uint32(0x00)
+	OpcodeStakeCoin = uint32(0x4cae3ab1)
 )
 
 type JettonWalletInteractor struct {
@@ -112,7 +112,10 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 
 	// Keep the first hash as the latest processed hash.
 	if firstTransHash != "" && firstTransHash != latestProcessedHash {
-		interactor.memoInteractor.SetLatestProcessedHash(firstTransHash)
+		err = interactor.memoInteractor.SetLatestProcessedHash(firstTransHash)
+		if err != nil {
+			log.Printf("Failed to update latest processed hash - %v\n", err.Error())
+		}
 	}
 
 	return FoundWallets, nil
@@ -180,13 +183,21 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 				continue
 			}
 
-			err = interactor.stakeCoin(accid)
+			// @TODO: add state for jetton-wallet record: new, ongoing, done, error
+			err = interactor.stakeCoin(accid, roundSince)
 			if err != nil {
 				log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
 				continue
 			} else {
-				log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
-				interactor.jwalletRepository.UpdateNotified(wallet.Address, time.Now())
+				// @TODO: update the wallet regarding to round-since
+				err = interactor.jwalletRepository.UpdateNotified(wallet.Address, roundSince, time.Now())
+				if err != nil {
+					log.Printf("Failed to update wallet address %v - %v\n", wallet.Address, err.Error())
+					continue
+				} else {
+					// @TODO: organize log messages, and shorten them.
+					log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
+				}
 			}
 		}
 	}
@@ -194,17 +205,14 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 	return nil
 }
 
-func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID) error {
-	opcode := uint64(0x4cae3ab1)
-
+func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID, roundSince uint32) error {
 	queryId := uint64(time.Now().Unix())
-	roundSince := uint64(0) // @TODO: round-since value must be evaluated here
 
 	cell := boc.NewCell()
-	cell.WriteUint(opcode, 32)     // opcode
-	cell.WriteUint(queryId, 64)    // query id
-	cell.WriteUint(roundSince, 32) // round since
-	cell.WriteUint(0, 2)           // return excess
+	cell.WriteUint(uint64(OpcodeStakeCoin), 32) // opcode
+	cell.WriteUint(queryId, 64)                 // query id
+	cell.WriteUint(uint64(roundSince), 32)      // round since
+	cell.WriteUint(0, 2)                        // return excess
 
 	msg := tgwallet.Message{
 		Amount:  100000000, //  tlb.Grams
@@ -213,7 +221,7 @@ func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID) error
 		Code:    nil,       //  *boc.Cell
 		Data:    nil,       //  *boc.Cell
 		Bounce:  true,      //  bool
-		Mode:    0,         //  uint8	@TOCLEAR: What value should be used?
+		Mode:    1,         //  uint8	/ Pay transfer fees separately from the message value /
 	}
 
 	err := interactor.driverWallet.Send(context.Background(), msg)

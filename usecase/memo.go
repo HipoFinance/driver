@@ -42,6 +42,6 @@ func (interactor *MemoInteractor) SetLatestProcessedHash(hash string) error {
 		extractionMemo.FromJson(memo.Memo)
 	}
 	extractionMemo.LatestProcessedHash = hash
-	interactor.memoRepository.Upsert(ExtractionMemoKey, &extractionMemo)
-	return nil
+	_, err = interactor.memoRepository.Upsert(ExtractionMemoKey, &extractionMemo)
+	return err
 }

@@ -75,7 +75,7 @@ func (repo *MemoRepository) Upsert(key string, memo domain.Memorable) (*domain.M
 			Affect: 1,
 		},
 		{
-			Query:   sqlJWalletFind,
+			Query:   sqlMemoFind,
 			Args:    []interface{}{key},
 			ReadOne: readMemo,
 		},

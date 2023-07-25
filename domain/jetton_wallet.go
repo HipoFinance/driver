@@ -6,7 +6,6 @@ import (
 	"github.com/tonkeeper/tongo/tlb"
 )
 
-// @TOCLEAR: If round-since is a time, why it is not uint64?
 type JettonWallet struct {
 	Address    string                 `json:"address"`
 	RoundSince uint32                 `json:"round_since"`

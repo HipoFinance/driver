@@ -143,7 +143,7 @@ func (interactor *JettonWalletInteractor) LoadNotNotified() ([]domain.JettonWall
 }
 
 func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []domain.JettonWallet) error {
-	// @TODO: The round-since value must be considered as a condition whether to call stakeCoin or not.
+	// The round-since value must be considered as a condition whether to call stakeCoin or not.
 	//
 	//	start from sooner roundSince
 	//  run get_method get_treasury_state
@@ -184,7 +184,7 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 
 			interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateOngoing)
 
-			// @TODO: check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
+			// check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
 			walletState, err := interactor.contractInteractor.GetWalletState(accid)
 			if err != nil {
 				log.Printf("Failed to get wallet state - %v\n", err.Error())

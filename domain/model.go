@@ -40,10 +40,10 @@ type SaveCoinMessage struct {
 	ReturnExcess tlb.MsgAddress
 }
 
-type WithdrawMessage struct {
+type ReserveTokenMessage struct {
 	Opcode       uint32
 	QuieryId     uint64
-	Tokens       big.Int
+	Tokens       tlb.Grams
 	Owner        tlb.MsgAddress
 	ReturnExcess tlb.MsgAddress
 }

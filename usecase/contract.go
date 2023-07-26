@@ -85,6 +85,7 @@ func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) 
 
 	if err != nil {
 		log.Printf("Failed to get wallet state [code = %v] - %v\n", code, err.Error())
+		return nil, err
 	}
 
 	if len(stack) != 3 ||

@@ -21,7 +21,7 @@ create table stakes
 create table unstakes
 (
     address      text        not null,
-    tokens       bigint      not null,
+    tokens       numeric(40) not null,
     hash         text        not null,
     state        text        not null,
     retried      integer     not null,

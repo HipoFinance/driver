@@ -65,10 +65,15 @@ func NewUnstakeRepository(db BatchHandler) *UnstakeRepository {
 
 func readUnstake(scan func(...interface{}) error) (interface{}, error) {
 	r := domain.UnstakeRequest{}
+	var tokenStr string
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.Tokens, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
+		&r.Address, &tokenStr, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
 	)
+	if err != nil {
+		return &r, err
+	}
+	err = r.Tokens.UnmarshalText([]byte(tokenStr))
 	if err != nil {
 		return &r, err
 	}
@@ -78,10 +83,16 @@ func readUnstake(scan func(...interface{}) error) (interface{}, error) {
 
 func readAllUnstakes(memo interface{}, scan func(...interface{}) error) (interface{}, error) {
 	r := domain.UnstakeRequest{}
+	var tokenStr string
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.Tokens, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
+		&r.Address, &tokenStr, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
 	)
+
+	if err == nil {
+		err = r.Tokens.UnmarshalText([]byte(tokenStr))
+	}
+
 	if err == nil {
 		err = json.Unmarshal(infoJson, &r.Info)
 	}
@@ -98,13 +109,13 @@ func (repo *UnstakeRepository) InsertIfNotExists(address string, tokens big.Int,
 		{
 			Query: sqlUntakeInsertIfNotExists,
 			Args: []interface{}{
-				address, tokens, hash, infoJson,
+				address, tokens.String(), hash, infoJson,
 			},
 			Affect: 1,
 		},
 		{
 			Query:   sqlUnstakeFind,
-			Args:    []interface{}{address, tokens, hash},
+			Args:    []interface{}{address, tokens.String(), hash},
 			ReadOne: readUnstake,
 		},
 	})
@@ -117,7 +128,7 @@ func (repo *UnstakeRepository) Find(address string, tokens big.Int, hash string)
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlUnstakeFind,
-			Args:    []interface{}{address, tokens, hash},
+			Args:    []interface{}{address, tokens.String(), hash},
 			ReadOne: readUnstake,
 		},
 	})
@@ -142,7 +153,7 @@ func (repo *UnstakeRepository) SetState(address string, tokens big.Int, hash str
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUnstakeSetState,
-			Args:   []interface{}{address, tokens, hash, state},
+			Args:   []interface{}{address, tokens.String(), hash, state},
 			Affect: 1,
 		},
 	})
@@ -153,7 +164,7 @@ func (repo *UnstakeRepository) SetRetrying(address string, tokens big.Int, hash 
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUntakeSetRetrying,
-			Args:   []interface{}{address, tokens, hash, timestamp},
+			Args:   []interface{}{address, tokens.String(), hash, timestamp},
 			Affect: 1,
 		},
 	})
@@ -164,7 +175,7 @@ func (repo *UnstakeRepository) SetSuccess(address string, tokens big.Int, hash s
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUntakeSetSucess,
-			Args:   []interface{}{address, tokens, hash, timestamp},
+			Args:   []interface{}{address, tokens.String(), hash, timestamp},
 			Affect: 1,
 		},
 	})

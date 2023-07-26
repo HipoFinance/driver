@@ -97,12 +97,12 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 		err = interactor.withdraw(accid, request.Tokens)
 		if err != nil {
-			log.Printf("Failed to stake coin for wallet address %v - %v\n", request.Address, err.Error())
+			log.Printf("Failed to unstake coin for wallet address %v - %v\n", request.Address, err.Error())
 			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateError)
 			continue
 		} else {
 			interactor.unstakeRepository.SetSuccess(request.Address, request.Tokens, request.Hash, time.Now())
-			log.Printf("Successfully stake coin for wallet address %v.\n", request.Address)
+			log.Printf("Successfully unstake coin for wallet address %v.\n", request.Address)
 		}
 	}
 
@@ -147,16 +147,7 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 			continue
 		}
 
-		msgs := ht.GetOutMessagesByOpcode(OpcodeWithdraw)
-		if len(msgs) > 1 {
-			log.Printf("Oops! more than one msg found!")
-			continue
-		}
-
-		var msg *domain.HMessage = nil
-		if len(msgs) == 1 {
-			msg = msgs[0]
-		}
+		msg := ht.GetInMessagesByOpcode(OpcodeReserveToken)
 
 		info := domain.UnstakeRelatedInfo{
 			Value: ht.Value(),
@@ -167,13 +158,22 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 		if msg != nil {
 			accid := msg.Src()
 			cell := msg.GetBody()
-			m := domain.WithdrawMessage{}
+			m := domain.ReserveTokenMessage{}
 			tlb.Unmarshal(cell, &m)
 
+			// @TODO: Use a better conversion method
+			buff, err := m.Tokens.MarshalJSON()
+			if err != nil {
+				log.Printf("Failed to parse tokens value: %v\n", err.Error())
+				continue
+			}
+			buff = buff[1 : len(buff)-1] // remove " marks from begining and end of json value
+			var tokens big.Int
+			tokens.UnmarshalText(buff)
 			addr := accid.ToHuman(true, domain.IsTestNet())
 			requests = append(requests, domain.UnstakeRequest{
 				Address:    addr,
-				Tokens:     m.Tokens,
+				Tokens:     tokens,
 				Hash:       ht.Formatter().Hash(),
 				Info:       info,
 				CreateTime: time.Now()})

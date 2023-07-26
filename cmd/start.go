@@ -79,23 +79,23 @@ func extract() {
 }
 
 func stake() {
-	wallets, err := stakeInteractor.LoadTriable()
+	requests, err := stakeInteractor.LoadTriable()
 	if err != nil {
 		fmt.Printf("❌ Failed to Send stake message to jetton wallets - %v\n", err.Error())
 		return
 	}
 
-	stakeInteractor.SendStakeMessageToJettonWallets(wallets)
+	stakeInteractor.SendStakeMessageToJettonWallets(requests)
 }
 
 func unstake() {
-	wallets, err := unstakeInteractor.LoadTriable()
+	requests, err := unstakeInteractor.LoadTriable()
 	if err != nil {
 		fmt.Printf("❌ Failed to Send withdraw message to jetton wallets - %v\n", err.Error())
 		return
 	}
 
-	unstakeInteractor.SendWithdrawMessageToJettonWallets(wallets)
+	unstakeInteractor.SendWithdrawMessageToJettonWallets(requests)
 }
 
 func printOutWallets(extractResult *domain.ExtractionResult) {

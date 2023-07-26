@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	OpcodeSaveCoin  = uint32(0x7f30ee55)
-	OpcodeBurnToken = uint32(0x002c6e13)
+	OpcodeSaveCoin     = uint32(0x7f30ee55)
+	OpcodeReserveToken = uint32(0x7bdd97de)
 )
 
 type ExtractInteractor struct {
@@ -90,7 +90,7 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 		unstkReqs := interactor.unstakeInteractor.MakeUnstakeRequests(trans)
 		result.StakeRequests = append(result.StakeRequests, stkReqs...)
 		result.UnstakeRequests = append(result.UnstakeRequests, unstkReqs...)
-		log.Printf("Found stake: %v\nFound unstake: %v\n", len(stkReqs), len(unstkReqs))
+		log.Printf("Found: %v stake(s), %v unstake(s)\n", len(stkReqs), len(unstkReqs))
 
 		// If the latest processed transaction is not reached,
 		if !reachEnd {

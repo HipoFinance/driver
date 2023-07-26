@@ -6,6 +6,7 @@ import (
 	"driver/interface/repository"
 	"log"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/tonkeeper/tongo"
@@ -66,17 +67,31 @@ func (interactor *UnstakeInteractor) LoadTriable() ([]domain.UnstakeRequest, err
 
 func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests []domain.UnstakeRequest) error {
 
-	// treasuryState, err := interactor.contractInteractor.GetTreasuryState()
-	// if err != nil {
-	// 	log.Printf("Failed to get treasury state - %v\n", err.Error())
-	// 	return err
-	// }
+	// Sorts the requests based on Tokens value accending, so that most requests will be done with a specified budget.
+	sort.Slice(requests, func(i, j int) bool {
+		return requests[i].Tokens.Cmp(&requests[j].Tokens) < 0
+	})
 
 	for _, request := range requests {
+
+		// Check the treaury balance.
+		balance, err := interactor.contractInteractor.GetTreasuryBalance()
+		if err != nil {
+			log.Printf("Failed to get treasury balance - %v\n", err.Error())
+			return err
+		}
+
 		accid, err := tongo.AccountIDFromBase64Url(request.Address)
 		if err != nil {
 			log.Printf("Failed to parse wallet address %v - %v\n", request.Address, err.Error())
 			continue
+		}
+
+		// Treasury balance must be 10 coins grater than request's tokens. Break the loop as the next request's tokens are
+		// more than this one, because the list are sorted.
+		// @TODO: make the value of 10 configurable.
+		if balance-request.Tokens.Uint64() <= 10 {
+			break
 		}
 
 		interactor.unstakeRepository.SetRetrying(request.Address, request.Tokens, request.Hash, time.Now())
@@ -89,7 +104,7 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 			continue
 		}
 
-		if walletState.Unstaking.Cmp(&request.Tokens) == 0 {
+		if walletState.Unstaking.Cmp(&request.Tokens) != 0 {
 			log.Printf("Not waiting for unstake %v\n", request.Address)
 			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateSkipped)
 			continue

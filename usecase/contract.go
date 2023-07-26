@@ -113,6 +113,14 @@ func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) 
 
 	return result, nil
 }
+func (interactor *ContractInteractor) GetTreasuryBalance() (uint64, error) {
+	state, err := interactor.client.GetAccountState(context.Background(), domain.GetTreasuryAccountId())
+	if err != nil {
+		return 0, err
+	}
+
+	return uint64(state.Account.Account.Storage.Balance.Grams), nil
+}
 
 func getBigIntValue(stackItem tlb.VmStackValue, defaultValue int64) *big.Int {
 	if stackItem.SumType == "VmStkTinyInt" {

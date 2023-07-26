@@ -34,19 +34,24 @@ type StakeRelatedInfo struct {
 }
 
 type UnstakeRequest struct {
-	Address     string           `json:"address"`
-	Tokens      big.Int          `json:"tokens"`
-	Hash        string           `json:"hash"`
-	State       string           `json:"state"`
-	Retried     int              `json:"retried"`
-	Info        StakeRelatedInfo `json:"info"`
-	CreateTime  time.Time        `json:"create_time"`
-	RetryTime   *time.Time       `json:"retry_time"`
-	SuccessTime *time.Time       `json:"success_time"`
+	Address     string             `json:"address"`
+	Tokens      big.Int            `json:"tokens"`
+	Hash        string             `json:"hash"`
+	State       string             `json:"state"`
+	Retried     int                `json:"retried"`
+	Info        UnstakeRelatedInfo `json:"info"`
+	CreateTime  time.Time          `json:"create_time"`
+	RetryTime   *time.Time         `json:"retry_time"`
+	SuccessTime *time.Time         `json:"success_time"`
 }
 
 type UnstakeRelatedInfo struct {
 	Value tlb.Grams `json:"value"`
 	Time  time.Time `json:"time"`
 	Hash  string    `json:"hash"`
+}
+
+type ExtractionResult struct {
+	StakeRequests   []StakeRequest
+	UnstakeRequests []UnstakeRequest
 }

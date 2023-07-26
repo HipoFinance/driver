@@ -39,3 +39,11 @@ type SaveCoinMessage struct {
 	RoundSince   uint32
 	ReturnExcess tlb.MsgAddress
 }
+
+type WithdrawMessage struct {
+	Opcode       uint32
+	QuieryId     uint64
+	Tokens       big.Int
+	Owner        tlb.MsgAddress
+	ReturnExcess tlb.MsgAddress
+}

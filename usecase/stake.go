@@ -4,7 +4,6 @@ import (
 	"context"
 	"driver/domain"
 	"driver/interface/repository"
-	"fmt"
 	"log"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 )
 
 const (
-	OpcodeSaveCoin  = uint32(0x7f30ee55)
 	OpcodeStakeCoin = uint32(0x4cae3ab1)
 )
 
@@ -43,86 +41,9 @@ func NewStakeInteractor(client *liteapi.Client,
 	return interactor
 }
 
-func (interactor *StakeInteractor) ExtractStakes(treasuryAccount tongo.AccountID) ([]domain.StakeRequest, error) {
-
-	var FoundWallets = make([]domain.StakeRequest, 0, 50)
-
-	// Read the latest processed transaction info
-	latestProcessedHash, err := interactor.memoInteractor.GetLatestProcessedHash()
-	if err != nil {
-		fmt.Printf("Failed to get last processed hash - %v\n", err.Error())
-		return nil, err
-	}
-
-	// Get last transactions of the treasury account, sorted decently by time.
-	trans, err := interactor.client.GetLastTransactions(context.Background(), treasuryAccount, 50)
-	if err != nil {
-		fmt.Printf("Failed to get last transactions - %v\n", err.Error())
-		return nil, err
-	}
-
-	// Keep the first processing transaction's hash, so that in next call, stop searching through the processed transactions.
-	var firstTrans *domain.HTransaction
-	firstTransHash := ""
-	if len(trans) > 0 {
-		firstTrans = domain.NewHTransaction(&trans[0].Transaction)
-		firstTransHash = firstTrans.Formatter().Hash()
-	}
-
-	// Start processing transactions
-	var hash tongo.Bits256
-	reachEnd := firstTransHash == latestProcessedHash
-	if reachEnd {
-		log.Printf("No new transaction to be processed.\n")
-	}
-
-	for err == nil && len(trans) > 0 && !reachEnd {
-		log.Printf("Processing transaction: %v\n", len(trans))
-		index := findLastUnprocessed(trans, latestProcessedHash)
-		reachEnd = index < len(trans)
-		if reachEnd {
-			trans = trans[0:index]
-		}
-
-		wallets := findDestByOpcode(trans, OpcodeSaveCoin)
-		FoundWallets = append(FoundWallets, wallets...)
-		log.Printf("Found transaction: %v\n", len(wallets))
-
-		// If the latest processed transaction is not reached,
-		if !reachEnd {
-			// Extract the Lt and the Hash of last transaction
-			lt := trans[len(trans)-1].Lt
-			hash.FromHex(trans[len(trans)-1].Hash().Hex())
-
-			// Extract previous transactions. GetTransactions function returns 16 items by max, this is why 16 is passed for the count parameter.
-			trans, err = interactor.client.GetTransactions(context.Background(), 16, treasuryAccount, lt, hash)
-			if err != nil {
-				log.Printf("Failed to get transactions - %v\n", err.Error())
-				fmt.Printf("❌ No wallet is kept due to error: %v", err.Error())
-				return nil, err
-			}
-
-			// Remove the first element as it's already processed in previous loop
-			if len(trans) > 0 {
-				trans = trans[1:]
-			}
-		}
-	}
-
-	// Keep the first hash as the latest processed hash.
-	if firstTransHash != "" && firstTransHash != latestProcessedHash {
-		err = interactor.memoInteractor.SetLatestProcessedHash(firstTransHash)
-		if err != nil {
-			log.Printf("Failed to update latest processed hash - %v\n", err.Error())
-		}
-	}
-
-	return FoundWallets, nil
-}
-
-func (interactor *StakeInteractor) Store(wallets []domain.StakeRequest) error {
-	for _, wallet := range wallets {
-		_, err := interactor.stakeRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.Hash, wallet.Info)
+func (interactor *StakeInteractor) Store(requests []domain.StakeRequest) error {
+	for _, request := range requests {
+		_, err := interactor.stakeRepository.InsertIfNotExists(request.Address, request.RoundSince, request.Hash, request.Info)
 		if err != nil {
 			log.Printf("Failed to insert stake record - %v\n", err.Error())
 			return err
@@ -133,16 +54,16 @@ func (interactor *StakeInteractor) Store(wallets []domain.StakeRequest) error {
 
 func (interactor *StakeInteractor) LoadTriable() ([]domain.StakeRequest, error) {
 
-	wallets, err := interactor.stakeRepository.FindAllTriable(domain.GetMaxRetry())
+	requests, err := interactor.stakeRepository.FindAllTriable(domain.GetMaxRetry())
 	if err != nil {
 		log.Printf("Failed to load stake records - %v\n", err.Error())
 		return nil, err
 	}
 
-	return wallets, nil
+	return requests, nil
 }
 
-func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(wallets []domain.StakeRequest) error {
+func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []domain.StakeRequest) error {
 	// The round-since value must be considered as a condition whether to call stakeCoin or not.
 	//
 	//	start from sooner roundSince
@@ -153,13 +74,13 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(wallets []dom
 
 	// Split the wallets based on their round-since
 	splitted := make(map[uint32][]domain.StakeRequest, 0)
-	for _, wallet := range wallets {
-		roundSince := wallet.RoundSince
+	for _, request := range requests {
+		roundSince := request.RoundSince
 		if _, exist := splitted[roundSince]; exist {
-			splitted[roundSince] = append(splitted[roundSince], wallet)
+			splitted[roundSince] = append(splitted[roundSince], request)
 		} else {
 			subList := make([]domain.StakeRequest, 0, 1)
-			subList = append(subList, wallet)
+			subList = append(subList, request)
 			splitted[roundSince] = subList
 		}
 	}
@@ -175,38 +96,38 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(wallets []dom
 			continue
 		}
 
-		for _, wallet := range subList {
-			accid, err := tongo.AccountIDFromBase64Url(wallet.Address)
+		for _, request := range subList {
+			accid, err := tongo.AccountIDFromBase64Url(request.Address)
 			if err != nil {
-				log.Printf("Failed to parse wallet address %v - %v\n", wallet.Address, err.Error())
+				log.Printf("Failed to parse wallet address %v - %v\n", request.Address, err.Error())
 				continue
 			}
 
-			interactor.stakeRepository.SetRetrying(wallet.Address, roundSince, wallet.Hash, time.Now())
+			interactor.stakeRepository.SetRetrying(request.Address, roundSince, request.Hash, time.Now())
 
 			// check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
 			walletState, err := interactor.contractInteractor.GetWalletState(accid)
 			if err != nil {
 				log.Printf("Failed to get wallet state - %v\n", err.Error())
-				interactor.stakeRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.RequestStateError)
+				interactor.stakeRepository.SetState(request.Address, roundSince, request.Hash, domain.RequestStateError)
 				continue
 			}
 
 			if _, exist := walletState.Staking[roundSince]; !exist {
 				log.Printf("Wallet is not waiting for any stake-coin.")
-				interactor.stakeRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.RequestStateSkipped)
+				interactor.stakeRepository.SetState(request.Address, roundSince, request.Hash, domain.RequestStateSkipped)
 				continue
 			}
 
 			err = interactor.stakeCoin(accid, roundSince)
 			if err != nil {
-				log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
-				interactor.stakeRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.RequestStateError)
+				log.Printf("Failed to stake coin for wallet address %v - %v\n", request.Address, err.Error())
+				interactor.stakeRepository.SetState(request.Address, roundSince, request.Hash, domain.RequestStateError)
 				continue
 			} else {
-				interactor.stakeRepository.SetSuccess(wallet.Address, roundSince, wallet.Hash, time.Now())
+				interactor.stakeRepository.SetSuccess(request.Address, roundSince, request.Hash, time.Now())
 				// @TODO: organize log messages, and shorten them.
-				log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
+				log.Printf("Successfully stake coin for wallet address %v.\n", request.Address)
 			}
 		}
 	}
@@ -242,19 +163,8 @@ func (interactor *StakeInteractor) stakeCoin(accid tongo.AccountID, roundSince u
 	return nil
 }
 
-func findLastUnprocessed(trans []tongo.Transaction, lastHash string) int {
-	for i, t := range trans {
-		ht := domain.NewHTransaction(&t.Transaction)
-		if ht.Formatter().Hash() == lastHash {
-			return i
-		}
-	}
-
-	return len(trans)
-}
-
-func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.StakeRequest {
-	wallets := make([]domain.StakeRequest, 0, 1)
+func (interactor *StakeInteractor) MakeStakeRequests(trans []tongo.Transaction) []domain.StakeRequest {
+	requests := make([]domain.StakeRequest, 0, 1)
 	for _, t := range trans {
 		ht := domain.NewHTransaction(&t.Transaction)
 
@@ -263,7 +173,7 @@ func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.StakeRe
 			continue
 		}
 
-		msgs := ht.GetOutMessagesByOpcode(opcode)
+		msgs := ht.GetOutMessagesByOpcode(OpcodeSaveCoin)
 		if len(msgs) > 1 {
 			log.Printf("Oops! more than one msg found!")
 			continue
@@ -287,7 +197,7 @@ func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.StakeRe
 			tlb.Unmarshal(cell, &m)
 
 			addr := accid.ToHuman(true, domain.IsTestNet())
-			wallets = append(wallets, domain.StakeRequest{
+			requests = append(requests, domain.StakeRequest{
 				Address:    addr,
 				RoundSince: m.RoundSince,
 				Hash:       ht.Formatter().Hash(),
@@ -296,5 +206,16 @@ func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.StakeRe
 		}
 	}
 
-	return wallets
+	return requests
+}
+
+func findLastUnprocessed(trans []tongo.Transaction, lastHash string) int {
+	for i, t := range trans {
+		ht := domain.NewHTransaction(&t.Transaction)
+		if ht.Formatter().Hash() == lastHash {
+			return i
+		}
+	}
+
+	return len(trans)
 }

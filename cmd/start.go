@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// startCmd represents the find command
+// startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts driver's tasks",
@@ -25,7 +25,7 @@ var startCmd = &cobra.Command{
 
 		defaultDependencyInject()
 
-		findTiker := schedule(find, domain.GetFindInterval(), quit)
+		extractTiker := schedule(extract, domain.GetExtractInterval(), quit)
 		stakeTicker := schedule(stake, domain.GetStakeInterval(), quit)
 		// unstakeTicker := schedule(unstake, domain.GetUnstakeInterval(), quit)
 
@@ -35,7 +35,7 @@ var startCmd = &cobra.Command{
 		s := <-stop
 		log.Printf("Got signal '%v', stopping", s)
 
-		findTiker.Stop()
+		extractTiker.Stop()
 		stakeTicker.Stop()
 		// unstakeTicker.Stop()
 	},
@@ -60,7 +60,7 @@ func schedule(task func(), interval time.Duration, done chan bool) *time.Ticker 
 	return ticker
 }
 
-func find() {
+func extract() {
 	accountId := domain.GetTreasuryAccountId()
 
 	wallets, err := jettonWalletInteractor.ExtractJettonWallets(accountId)
@@ -119,9 +119,9 @@ func init() {
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// findCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// startCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// findCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// startCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

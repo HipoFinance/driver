@@ -7,7 +7,7 @@
     "mnemonic": "subway under balance inspire glad stuff tongue pudding nut cool front any ocean shed view uncle envelope control outside false skate deny dust lens",
     "mnemonic_url": "",
 
-    "find_interval": "5s",
+    "extract_interval": "5s",
     "stake_interval": "5s",
     "unstake_interval": "10m"
 }

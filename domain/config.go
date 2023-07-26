@@ -26,7 +26,7 @@ var (
 	ErrorMnemonicConflict    = fmt.Errorf("only one of mnemonic or mnemonic_url must be defined")
 	ErrorReadingMnemonicFile = fmt.Errorf("error in reading mnemonic file")
 
-	ErrorInvalidFindInterval    = fmt.Errorf("invalid time interval for find process")
+	ErrorInvalidExtractInterval = fmt.Errorf("invalid time interval for extract process")
 	ErrorInvalidStakeInterval   = fmt.Errorf("invalid time interval for stake process")
 	ErrorInvalidUnstakeInterval = fmt.Errorf("invalid time interval for unstake process")
 
@@ -48,7 +48,7 @@ var (
 	treasuryAddress   string
 	treasuryAccountId tongo.AccountID
 
-	findInterval    time.Duration
+	extractInterval time.Duration
 	stakeInterval   time.Duration
 	unstakeInterval time.Duration
 )
@@ -114,11 +114,11 @@ func initializeVariables() error {
 	}
 
 	//---------------------------------------------------------------
-	// find interval
-	strValue := viper.GetString("find_interval")
-	findInterval, err = time.ParseDuration(strValue)
+	// extract interval
+	strValue := viper.GetString("extract_interval")
+	extractInterval, err = time.ParseDuration(strValue)
 	if err != nil {
-		return ErrorInvalidFindInterval
+		return ErrorInvalidExtractInterval
 	}
 
 	//---------------------------------------------------------------
@@ -175,8 +175,8 @@ func GetNetwork() string {
 	return network
 }
 
-func GetFindInterval() time.Duration {
-	return findInterval
+func GetExtractInterval() time.Duration {
+	return extractInterval
 }
 
 func GetStakeInterval() time.Duration {

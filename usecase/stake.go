@@ -20,32 +20,32 @@ const (
 	OpcodeStakeCoin = uint32(0x4cae3ab1)
 )
 
-type JettonWalletInteractor struct {
+type StakeInteractor struct {
 	client             *liteapi.Client
 	memoInteractor     *MemoInteractor
 	contractInteractor *ContractInteractor
-	jwalletRepository  *repository.JettonWalletRepository
+	stakeRepository    *repository.StakeRepository
 	driverWallet       *tgwallet.Wallet
 }
 
-func NewJettonWalletInteractor(client *liteapi.Client,
+func NewStakeInteractor(client *liteapi.Client,
 	memoInteractor *MemoInteractor,
 	contractInteractor *ContractInteractor,
-	jwalletRepository *repository.JettonWalletRepository,
-	driverWallet *tgwallet.Wallet) *JettonWalletInteractor {
-	interactor := &JettonWalletInteractor{
+	stakeRepository *repository.StakeRepository,
+	driverWallet *tgwallet.Wallet) *StakeInteractor {
+	interactor := &StakeInteractor{
 		client:             client,
 		memoInteractor:     memoInteractor,
 		contractInteractor: contractInteractor,
-		jwalletRepository:  jwalletRepository,
+		stakeRepository:    stakeRepository,
 		driverWallet:       driverWallet,
 	}
 	return interactor
 }
 
-func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount tongo.AccountID) ([]domain.JettonWallet, error) {
+func (interactor *StakeInteractor) ExtractStakes(treasuryAccount tongo.AccountID) ([]domain.StakeRequest, error) {
 
-	var FoundWallets = make([]domain.JettonWallet, 0, 50)
+	var FoundWallets = make([]domain.StakeRequest, 0, 50)
 
 	// Read the latest processed transaction info
 	latestProcessedHash, err := interactor.memoInteractor.GetLatestProcessedHash()
@@ -120,29 +120,29 @@ func (interactor *JettonWalletInteractor) ExtractJettonWallets(treasuryAccount t
 	return FoundWallets, nil
 }
 
-func (interactor *JettonWalletInteractor) Store(wallets []domain.JettonWallet) error {
+func (interactor *StakeInteractor) Store(wallets []domain.StakeRequest) error {
 	for _, wallet := range wallets {
-		_, err := interactor.jwalletRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.Hash, wallet.Info)
+		_, err := interactor.stakeRepository.InsertIfNotExists(wallet.Address, wallet.RoundSince, wallet.Hash, wallet.Info)
 		if err != nil {
-			log.Printf("Failed to insert jetton wallet record - %v\n", err.Error())
+			log.Printf("Failed to insert stake record - %v\n", err.Error())
 			return err
 		}
 	}
 	return nil
 }
 
-func (interactor *JettonWalletInteractor) LoadNotNotified() ([]domain.JettonWallet, error) {
+func (interactor *StakeInteractor) LoadTriable() ([]domain.StakeRequest, error) {
 
-	wallets, err := interactor.jwalletRepository.FindAllToNotify()
+	wallets, err := interactor.stakeRepository.FindAllTriable(domain.GetMaxRetry())
 	if err != nil {
-		log.Printf("Failed to load jetton wallet records - %v\n", err.Error())
+		log.Printf("Failed to load stake records - %v\n", err.Error())
 		return nil, err
 	}
 
 	return wallets, nil
 }
 
-func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []domain.JettonWallet) error {
+func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(wallets []domain.StakeRequest) error {
 	// The round-since value must be considered as a condition whether to call stakeCoin or not.
 	//
 	//	start from sooner roundSince
@@ -152,13 +152,13 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 	//  if exists, skip it, otherwise send stake-coin message
 
 	// Split the wallets based on their round-since
-	splitted := make(map[uint32][]domain.JettonWallet, 0)
+	splitted := make(map[uint32][]domain.StakeRequest, 0)
 	for _, wallet := range wallets {
 		roundSince := wallet.RoundSince
 		if _, exist := splitted[roundSince]; exist {
 			splitted[roundSince] = append(splitted[roundSince], wallet)
 		} else {
-			subList := make([]domain.JettonWallet, 0, 1)
+			subList := make([]domain.StakeRequest, 0, 1)
 			subList = append(subList, wallet)
 			splitted[roundSince] = subList
 		}
@@ -182,29 +182,29 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 				continue
 			}
 
-			interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateOngoing)
+			interactor.stakeRepository.SetRetrying(wallet.Address, roundSince, wallet.Hash, time.Now())
 
 			// check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
 			walletState, err := interactor.contractInteractor.GetWalletState(accid)
 			if err != nil {
 				log.Printf("Failed to get wallet state - %v\n", err.Error())
-				interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateError)
+				interactor.stakeRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.RequestStateError)
 				continue
 			}
 
 			if _, exist := walletState.Staking[roundSince]; !exist {
 				log.Printf("Wallet is not waiting for any stake-coin.")
-				interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateSkipped)
+				interactor.stakeRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.RequestStateSkipped)
 				continue
 			}
 
 			err = interactor.stakeCoin(accid, roundSince)
 			if err != nil {
 				log.Printf("Failed to stake coin for wallet address %v - %v\n", wallet.Address, err.Error())
-				interactor.jwalletRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.JWalletStateError)
+				interactor.stakeRepository.SetState(wallet.Address, roundSince, wallet.Hash, domain.RequestStateError)
 				continue
 			} else {
-				interactor.jwalletRepository.SetNotified(wallet.Address, roundSince, wallet.Hash, time.Now())
+				interactor.stakeRepository.SetSuccess(wallet.Address, roundSince, wallet.Hash, time.Now())
 				// @TODO: organize log messages, and shorten them.
 				log.Printf("Successfully stake coin for wallet address %v.\n", wallet.Address)
 			}
@@ -214,7 +214,7 @@ func (interactor *JettonWalletInteractor) SendMessageToJettonWallets(wallets []d
 	return nil
 }
 
-func (interactor *JettonWalletInteractor) stakeCoin(accid tongo.AccountID, roundSince uint32) error {
+func (interactor *StakeInteractor) stakeCoin(accid tongo.AccountID, roundSince uint32) error {
 	queryId := uint64(time.Now().Unix())
 
 	cell := boc.NewCell()
@@ -253,8 +253,8 @@ func findLastUnprocessed(trans []tongo.Transaction, lastHash string) int {
 	return len(trans)
 }
 
-func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.JettonWallet {
-	wallets := make([]domain.JettonWallet, 0, 1)
+func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.StakeRequest {
+	wallets := make([]domain.StakeRequest, 0, 1)
 	for _, t := range trans {
 		ht := domain.NewHTransaction(&t.Transaction)
 
@@ -274,7 +274,7 @@ func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.JettonW
 			msg = msgs[0]
 		}
 
-		info := domain.RelatedTransactionInfo{
+		info := domain.StakeRelatedInfo{
 			Value: ht.Value(),
 			Time:  ht.UnixTime(),
 			Hash:  ht.Formatter().Hash(),
@@ -287,7 +287,7 @@ func findDestByOpcode(trans []tongo.Transaction, opcode uint32) []domain.JettonW
 			tlb.Unmarshal(cell, &m)
 
 			addr := accid.ToHuman(true, domain.IsTestNet())
-			wallets = append(wallets, domain.JettonWallet{
+			wallets = append(wallets, domain.StakeRequest{
 				Address:    addr,
 				RoundSince: m.RoundSince,
 				Hash:       ht.Formatter().Hash(),

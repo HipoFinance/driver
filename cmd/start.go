@@ -63,15 +63,15 @@ func schedule(task func(), interval time.Duration, done chan bool) *time.Ticker 
 func extract() {
 	accountId := domain.GetTreasuryAccountId()
 
-	wallets, err := jettonWalletInteractor.ExtractJettonWallets(accountId)
+	wallets, err := stakeInteractor.ExtractStakes(accountId)
 	if err != nil {
-		fmt.Printf("❌ No jetton wallet is extracted due to error: %v", err.Error())
+		fmt.Printf("❌ No stake is extracted due to error: %v", err.Error())
 		return
 	}
 
-	err = jettonWalletInteractor.Store(wallets)
+	err = stakeInteractor.Store(wallets)
 	if err != nil {
-		fmt.Printf("❌ No jetton wallet is stored due to error: %v", err.Error())
+		fmt.Printf("❌ No stake is stored due to error: %v", err.Error())
 		return
 	}
 
@@ -79,26 +79,19 @@ func extract() {
 }
 
 func stake() {
-	wallets, err := jettonWalletInteractor.LoadNotNotified()
+	wallets, err := stakeInteractor.LoadTriable()
 	if err != nil {
 		fmt.Printf("❌ Failed to Send message to jetton wallets - %v\n", err.Error())
 		return
 	}
 
-	jettonWalletInteractor.SendMessageToJettonWallets(wallets)
+	stakeInteractor.SendStakeMessageToJettonWallets(wallets)
 }
 
 func unstake() {
-	// wallets, err := jettonWalletInteractor.LoadNotNotified()
-	// if err != nil {
-	// 	fmt.Printf("❌ Failed to Send message to jetton wallets - %v\n", err.Error())
-	// 	return
-	// }
-
-	// jettonWalletInteractor.SendMessageToJettonWallets(wallets)
 }
 
-func printOutWallets(wallets []domain.JettonWallet) {
+func printOutWallets(wallets []domain.StakeRequest) {
 
 	fmt.Printf("------------- FOUND WALLET LIST -----------------\n")
 	i := 1

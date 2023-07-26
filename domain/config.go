@@ -51,6 +51,8 @@ var (
 	extractInterval time.Duration
 	stakeInterval   time.Duration
 	unstakeInterval time.Duration
+
+	maxRetry int
 )
 
 func ReadConfig(filePath string) {
@@ -137,6 +139,8 @@ func initializeVariables() error {
 		return ErrorInvalidUnstakeInterval
 	}
 
+	maxRetry = viper.GetInt("max_retry")
+
 	return nil
 }
 
@@ -185,6 +189,10 @@ func GetStakeInterval() time.Duration {
 
 func GetUnstakeInterval() time.Duration {
 	return unstakeInterval
+}
+
+func GetMaxRetry() int {
+	return maxRetry
 }
 
 func GetDriverWalletPrivateKey() ed25519.PrivateKey {

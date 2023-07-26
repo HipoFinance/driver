@@ -9,5 +9,7 @@
 
     "extract_interval": "5s",
     "stake_interval": "5s",
-    "unstake_interval": "10m"
+    "unstake_interval": "10m",
+
+    "max_retry": 3
 }

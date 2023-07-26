@@ -49,17 +49,17 @@ func defaultDependencyInject() {
 		return
 	}
 
-	jettonWalletRepository := repository.NewJettonWalletRepository(dbHandler)
+	stakeRepository := repository.NewStakeRepository(dbHandler)
 	memoRepository := repository.NewMemoRepository(dbHandler)
 
 	memoInteractor = usecase.NewMemoInteractor(memoRepository)
 	contractInteractor = usecase.NewContractInteractor(tongoClient)
-	jettonWalletInteractor = usecase.NewJettonWalletInteractor(tongoClient, memoInteractor, contractInteractor, jettonWalletRepository, &driverWallet)
+	stakeInteractor = usecase.NewStakeInteractor(tongoClient, memoInteractor, contractInteractor, stakeRepository, &driverWallet)
 }
 
 var dbPool *sql.DB
 var tongoClient *liteapi.Client
-var jettonWalletInteractor *usecase.JettonWalletInteractor
+var stakeInteractor *usecase.StakeInteractor
 var contractInteractor *usecase.ContractInteractor
 var memoInteractor *usecase.MemoInteractor
 var driverWallet wallet.Wallet

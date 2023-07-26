@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"driver/domain"
+	"fmt"
 	"log"
 	"math/big"
 
@@ -10,6 +11,11 @@ import (
 	"github.com/tonkeeper/tongo/boc"
 	"github.com/tonkeeper/tongo/liteapi"
 	"github.com/tonkeeper/tongo/tlb"
+)
+
+var (
+	ErrorUnexpectedTreasuryState = fmt.Errorf("unexpected treasury state")
+	ErrorUnexpectedWalletState   = fmt.Errorf("unexpected wallet state")
 )
 
 type ContractInteractor struct {
@@ -46,7 +52,7 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 		stack[13].SumType != "VmStkTinyInt" ||
 		(stack[14].SumType != "VmStkCell" && stack[14].SumType != "VmStkNull") ||
 		(stack[15].SumType != "VmStkCell") {
-		return nil, domain.ErrorUnexpectedTreasuryState
+		return nil, ErrorUnexpectedTreasuryState
 	}
 
 	result := &domain.TreasuryState{}
@@ -85,7 +91,7 @@ func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) 
 		(stack[0].SumType != "VmStkTinyInt" && stack[0].SumType != "VmStkInt") ||
 		(stack[1].SumType != "VmStkCell" && stack[1].SumType != "VmStkNull") ||
 		(stack[2].SumType != "VmStkTinyInt" && stack[2].SumType != "VmStkInt") {
-		return nil, domain.ErrorUnexpectedWalletState
+		return nil, ErrorUnexpectedWalletState
 	}
 
 	result := &domain.WalletState{}

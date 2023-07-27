@@ -74,8 +74,8 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 	for _, request := range requests {
 
-		// Check the treaury balance.
-		balance, err := interactor.contractInteractor.GetTreasuryBalance()
+		// Check the treaury treasuryBalance.
+		treasuryBalance, err := interactor.contractInteractor.GetTreasuryBalance()
 		if err != nil {
 			log.Printf("Failed to get treasury balance - %v\n", err.Error())
 			return err
@@ -87,14 +87,14 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 			continue
 		}
 
-		// Treasury balance must be 10 coins grater than request's tokens. Break the loop as the next request's tokens are
-		// more than this one, because the list are sorted.
-		// @TODO: make the value of 10 configurable.
-		if balance-request.Tokens.Uint64() <= 10 {
+		// Treasury budget must be grater than request's tokens. If not, break the loop as the next request's tokens
+		// are more than this one (because the list are sorted).
+		// @TODO: Use get_method to find out the available budget
+		var totalBudget big.Int
+		totalBudget.SetUint64(treasuryBalance - 10)
+		if request.Tokens.Cmp(&totalBudget) > 0 {
 			break
 		}
-
-		interactor.unstakeRepository.SetRetrying(request.Address, request.Tokens, request.Hash, time.Now())
 
 		// @TODO: check the wallet to know if it is wating for a withdraw messages, using get_wallet_state
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
@@ -104,11 +104,22 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 			continue
 		}
 
-		if walletState.Unstaking.Cmp(&request.Tokens) != 0 {
-			log.Printf("Not waiting for unstake %v\n", request.Address)
+		// Skip the request if the wallet has no unstaking
+		if walletState.Unstaking.Cmp(big.NewInt(0)) == 0 {
+			log.Printf("No request for unstaking %v\n", request.Address)
 			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateSkipped)
 			continue
 		}
+
+		// Check if the budget can pay the required unstaking value.
+		// Note that each wallet may have multiple unstake requests. If so, the wallet keep the total as unstaking value.
+		// So, compare the unstaking value of the wallet against the treasury budget, not the request.Token value.
+		if walletState.Unstaking.Cmp(&totalBudget) > 0 {
+			log.Printf("Not enough budget for unstaking %v\n", request.Address)
+			continue
+		}
+
+		interactor.unstakeRepository.SetRetrying(request.Address, request.Tokens, request.Hash, time.Now())
 
 		err = interactor.withdraw(accid, request.Tokens)
 		if err != nil {

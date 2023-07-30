@@ -25,6 +25,20 @@ var startCmd = &cobra.Command{
 
 		defaultDependencyInject()
 
+		fmt.Printf("\n"+
+			"Network:             %s\n"+
+			"Treasury wallet:     %v\n"+
+			"Extractoin Interval: %v\n"+
+			"Stake Interval:      %v\n"+
+			"Unstake Interval:    %v\n",
+			domain.GetNetwork(),
+			domain.GetTreasuryAddress(),
+			domain.GetExtractInterval(),
+			domain.GetStakeInterval(),
+			domain.GetUnstakeInterval())
+
+		domain.GetTreasuryAddress()
+
 		extractTiker := schedule(extract, domain.GetExtractInterval(), quit)
 		stakeTicker := schedule(stake, domain.GetStakeInterval(), quit)
 		unstakeTicker := schedule(unstake, domain.GetUnstakeInterval(), quit)
@@ -65,13 +79,13 @@ func extract() {
 
 	extractResult, err := extractInteractor.Extract(accountId)
 	if err != nil {
-		fmt.Printf("❌ No stake is extracted due to error: %v", err.Error())
+		fmt.Printf("❌ No request is extracted: %v", err.Error())
 		return
 	}
 
 	err = extractInteractor.Store(extractResult)
 	if err != nil {
-		fmt.Printf("❌ No stake is stored due to error: %v", err.Error())
+		fmt.Printf("❌ No request is stored: %v", err.Error())
 		return
 	}
 
@@ -81,7 +95,7 @@ func extract() {
 func stake() {
 	requests, err := stakeInteractor.LoadTriable()
 	if err != nil {
-		fmt.Printf("❌ Failed to Send stake message to jetton wallets - %v\n", err.Error())
+		fmt.Printf("❌ Failed to send Stake messages - %v\n", err.Error())
 		return
 	}
 
@@ -91,7 +105,7 @@ func stake() {
 func unstake() {
 	requests, err := unstakeInteractor.LoadTriable()
 	if err != nil {
-		fmt.Printf("❌ Failed to Send withdraw message to jetton wallets - %v\n", err.Error())
+		fmt.Printf("❌ Failed to send Withdraw message - %v\n", err.Error())
 		return
 	}
 
@@ -100,23 +114,20 @@ func unstake() {
 
 func printOutWallets(extractResult *domain.ExtractionResult) {
 
-	fmt.Printf("------------- FOUND WALLET LIST -----------------\n")
+	if len(extractResult.StakeRequests)+len(extractResult.UnstakeRequests) > 0 {
+		fmt.Printf("------------- FOUND WALLET LIST -----------------\n")
+	}
+
 	i := 1
 	for _, wallet := range extractResult.StakeRequests {
-		fmt.Printf("stake #%03d - %v [ ", i, wallet.Address)
-		sep := ""
 		info := wallet.Info
-		fmt.Printf("%v%v", sep, info.Hash)
-		fmt.Printf(" ]\n")
+		fmt.Printf("stake #%03d - [ wallet: %v , hash: %v ]\n", i, wallet.Address, info.Hash)
 		i++
 	}
 
 	for _, wallet := range extractResult.UnstakeRequests {
-		fmt.Printf("unstake #%03d - %v [ ", i, wallet.Address)
-		sep := ""
 		info := wallet.Info
-		fmt.Printf("%v%v", sep, info.Hash)
-		fmt.Printf(" ]\n")
+		fmt.Printf("unstake #%03d - [ wallet: %v , hash: %v ]\n", i, wallet.Address, info.Hash)
 		i++
 	}
 }

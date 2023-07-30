@@ -22,7 +22,7 @@ func (handler DBHandler) Batch(opts *sql.TxOptions, commands []sqlbatch.Command)
 	for {
 		results, err := handler.tryBatch(opts, commands)
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "40001" {
-			log.Printf("⚠️ Retryable Postgres error, retrying: %v", err)
+			log.Printf("🟡 Retryable Postgres error, retrying: %v", err)
 			continue
 		}
 		return results, err

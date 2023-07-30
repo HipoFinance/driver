@@ -45,7 +45,7 @@ func (interactor *StakeInteractor) Store(requests []domain.StakeRequest) error {
 	for _, request := range requests {
 		_, err := interactor.stakeRepository.InsertIfNotExists(request.Address, request.RoundSince, request.Hash, request.Info)
 		if err != nil {
-			log.Printf("Failed to insert stake record - %v\n", err.Error())
+			log.Printf("🔴 inserting stake - %v\n", err.Error())
 			return err
 		}
 	}
@@ -56,7 +56,7 @@ func (interactor *StakeInteractor) LoadTriable() ([]domain.StakeRequest, error) 
 
 	requests, err := interactor.stakeRepository.FindAllTriable(domain.GetMaxRetry())
 	if err != nil {
-		log.Printf("Failed to load stake records - %v\n", err.Error())
+		log.Printf("🔴 loading stake - %v\n", err.Error())
 		return nil, err
 	}
 
@@ -87,7 +87,7 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 
 	treasuryState, err := interactor.contractInteractor.GetTreasuryState()
 	if err != nil {
-		log.Printf("Failed to get treasury state - %v\n", err.Error())
+		log.Printf("🔴 getting treasury state - %v\n", err.Error())
 		return err
 	}
 
@@ -99,7 +99,7 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 		for _, request := range subList {
 			accid, err := tongo.AccountIDFromBase64Url(request.Address)
 			if err != nil {
-				log.Printf("Failed to parse wallet address %v - %v\n", request.Address, err.Error())
+				log.Printf("🔴 parsing wallet address %v - %v\n", request.Address, err.Error())
 				continue
 			}
 
@@ -108,26 +108,25 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 			// check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
 			walletState, err := interactor.contractInteractor.GetWalletState(accid)
 			if err != nil {
-				log.Printf("Failed to get wallet state - %v\n", err.Error())
+				log.Printf("🔴 getting wallet state - %v\n", err.Error())
 				interactor.stakeRepository.SetState(request.Address, roundSince, request.Hash, domain.RequestStateError)
 				continue
 			}
 
 			if _, exist := walletState.Staking[roundSince]; !exist {
-				log.Printf("Wallet is not waiting for any stake-coin.")
+				log.Printf("🔵 Wallet has no stake request.")
 				interactor.stakeRepository.SetState(request.Address, roundSince, request.Hash, domain.RequestStateSkipped)
 				continue
 			}
 
 			err = interactor.stakeCoin(accid, roundSince)
 			if err != nil {
-				log.Printf("Failed to stake coin for wallet address %v - %v\n", request.Address, err.Error())
+				log.Printf("🔴 staking [wallet: %v] - %v\n", request.Address, err.Error())
 				interactor.stakeRepository.SetState(request.Address, roundSince, request.Hash, domain.RequestStateError)
 				continue
 			} else {
 				interactor.stakeRepository.SetSuccess(request.Address, roundSince, request.Hash, time.Now())
-				// @TODO: organize log messages, and shorten them.
-				log.Printf("Successfully stake coin for wallet address %v.\n", request.Address)
+				log.Printf("Successfully stakeed for wallet address %v.\n", request.Address)
 			}
 		}
 	}
@@ -156,7 +155,7 @@ func (interactor *StakeInteractor) stakeCoin(accid tongo.AccountID, roundSince u
 
 	err := interactor.driverWallet.Send(context.Background(), msg)
 	if err != nil {
-		log.Printf("Failed to send message - %v\n", err.Error())
+		log.Printf("🔴 sending Stake message - %v\n", err.Error())
 		return err
 	}
 
@@ -175,7 +174,7 @@ func (interactor *StakeInteractor) MakeStakeRequests(trans []tongo.Transaction) 
 
 		msgs := ht.GetOutMessagesByOpcode(OpcodeSaveCoin)
 		if len(msgs) > 1 {
-			log.Printf("Oops! more than one msg found!")
+			log.Printf("❗️ something's wrong, more than one msg found.")
 			continue
 		}
 

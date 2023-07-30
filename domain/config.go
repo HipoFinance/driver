@@ -61,12 +61,12 @@ func ReadConfig(filePath string) {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("⚠️ Failed reading config file: %v\n", err.Error())
+		log.Printf("🔴 reading configuration [file: %v] - %v\n", filePath, err.Error())
 	}
 
 	err := initializeVariables()
 	if err != nil {
-		log.Fatalf("Configuration error - %v\n", err.Error())
+		log.Fatalf("🔴 checking configuration - %v\n", err.Error())
 	}
 }
 
@@ -111,7 +111,7 @@ func initializeVariables() error {
 
 	driverWalletPrivateKey, err = wallet.SeedToPrivateKey(seed)
 	if err != nil {
-		log.Printf("Failed to get private key - %v\n", err.Error())
+		log.Printf("🔴 getting private key - %v\n", err.Error())
 		return err
 	}
 
@@ -148,7 +148,7 @@ func readMnemonicFile(filePath string) (string, error) {
 
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("Failed to read mmnemonic file - %v\n", err.Error())
+		log.Printf("🔴 reading mmnemonic [file: %v] - %v\n", filePath, err.Error())
 		return "", err
 	}
 

@@ -52,14 +52,14 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	// Read the latest processed transaction info
 	latestProcessedHash, err := interactor.memoInteractor.GetLatestProcessedHash()
 	if err != nil {
-		fmt.Printf("Failed to get last processed hash - %v\n", err.Error())
+		fmt.Printf("🔴 getting last processed hash - %v\n", err.Error())
 		return nil, err
 	}
 
 	// Get last transactions of the treasury account, sorted decently by time.
 	trans, err := interactor.client.GetLastTransactions(context.Background(), treasuryAccount, 50)
 	if err != nil {
-		fmt.Printf("Failed to get last transactions - %v\n", err.Error())
+		fmt.Printf("🔴 getting last transactions - %v\n", err.Error())
 		return nil, err
 	}
 
@@ -75,11 +75,10 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	var hash tongo.Bits256
 	reachEnd := firstTransHash == latestProcessedHash
 	if reachEnd {
-		log.Printf("No new transaction to be processed.\n")
+		log.Printf("No new transaction for process.\n")
 	}
 
 	for err == nil && len(trans) > 0 && !reachEnd {
-		log.Printf("Processing transaction: %v\n", len(trans))
 		index := findLastUnprocessed(trans, latestProcessedHash)
 		reachEnd = index < len(trans)
 		if reachEnd {
@@ -90,7 +89,7 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 		unstkReqs := interactor.unstakeInteractor.MakeUnstakeRequests(trans)
 		result.StakeRequests = append(result.StakeRequests, stkReqs...)
 		result.UnstakeRequests = append(result.UnstakeRequests, unstkReqs...)
-		log.Printf("Found: %v stake(s), %v unstake(s)\n", len(stkReqs), len(unstkReqs))
+		log.Printf("Processing transactions... Total: %v / Found: %v stake(s) and %v unstake(s)\n", len(trans), len(stkReqs), len(unstkReqs))
 
 		// If the latest processed transaction is not reached,
 		if !reachEnd {
@@ -101,8 +100,8 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 			// Extract previous transactions. GetTransactions function returns 16 items by max, this is why 16 is passed for the count parameter.
 			trans, err = interactor.client.GetTransactions(context.Background(), 16, treasuryAccount, lt, hash)
 			if err != nil {
-				log.Printf("Failed to get transactions - %v\n", err.Error())
-				fmt.Printf("❌ No wallet is kept due to error: %v", err.Error())
+				log.Printf("🔴 getting transactions - %v\n", err.Error())
+				fmt.Printf("❌ No wallet will be kept due to above error.\n")
 				return nil, err
 			}
 
@@ -117,7 +116,7 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	if firstTransHash != "" && firstTransHash != latestProcessedHash {
 		err = interactor.memoInteractor.SetLatestProcessedHash(firstTransHash)
 		if err != nil {
-			log.Printf("Failed to update latest processed hash - %v\n", err.Error())
+			log.Printf("🔴 updating latest hash - %v\n", err.Error())
 		}
 	}
 
@@ -127,13 +126,13 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 func (interactor *ExtractInteractor) Store(extractResult *domain.ExtractionResult) error {
 	err := interactor.stakeInteractor.Store(extractResult.StakeRequests)
 	if err != nil {
-		log.Printf("Failed to store stake records - %v\n", err.Error())
+		log.Printf("🔴 storing stake - %v\n", err.Error())
 		return err
 	}
 
 	err = interactor.unstakeInteractor.Store(extractResult.UnstakeRequests)
 	if err != nil {
-		log.Printf("Failed to store unstake records - %v\n", err.Error())
+		log.Printf("🔴 storing unstake - %v\n", err.Error())
 		return err
 	}
 

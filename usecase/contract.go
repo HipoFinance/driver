@@ -15,6 +15,7 @@ import (
 
 var (
 	ErrorUnexpectedTreasuryState = fmt.Errorf("unexpected treasury state")
+	ErrorUnexpectedMaxBurnable   = fmt.Errorf("unexpected max burnable")
 	ErrorUnexpectedWalletState   = fmt.Errorf("unexpected wallet state")
 )
 
@@ -32,7 +33,8 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 	code, stack, err := interactor.client.RunSmcMethod(context.Background(), domain.GetTreasuryAccountId(), "get_treasury_state", tlb.VmStack{})
 
 	if err != nil {
-		log.Printf("Failed to get treasury state [code = %v] - %v\n", code, err.Error())
+		log.Printf("🔴 getting treasury state [code = %v] - %v\n", code, err.Error())
+		return nil, err
 	}
 
 	if len(stack) != 16 ||
@@ -80,11 +82,29 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 	return result, nil
 }
 
+func (interactor *ContractInteractor) GetMaxBurnableTokens() (*big.Int, error) {
+	code, stack, err := interactor.client.RunSmcMethod(context.Background(), domain.GetTreasuryAccountId(), "get_max_burnable_tokens", tlb.VmStack{})
+
+	if err != nil {
+		log.Printf("🔴 getting max burnable tokens [code = %v] - %v\n", code, err.Error())
+		return nil, err
+	}
+
+	if len(stack) != 1 ||
+		(stack[0].SumType != "VmStkTinyInt" && stack[0].SumType != "VmStkInt") {
+		return nil, ErrorUnexpectedMaxBurnable
+	}
+
+	result := getBigIntValue(stack[0], 0)
+
+	return result, nil
+}
+
 func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) (*domain.WalletState, error) {
 	code, stack, err := interactor.client.RunSmcMethod(context.Background(), accountId, "get_wallet_state", tlb.VmStack{})
 
 	if err != nil {
-		log.Printf("Failed to get wallet state [code = %v] - %v\n", code, err.Error())
+		log.Printf("🔴 getting wallet state [code = %v] - %v\n", code, err.Error())
 		return nil, err
 	}
 

@@ -47,7 +47,7 @@ func (interactor *UnstakeInteractor) Store(requests []domain.UnstakeRequest) err
 	for _, request := range requests {
 		_, err := interactor.unstakeRepository.InsertIfNotExists(request.Address, request.Tokens, request.Hash, request.Info)
 		if err != nil {
-			log.Printf("Failed to insert unstake record - %v\n", err.Error())
+			log.Printf("🔴 inserting unstake - %v\n", err.Error())
 			return err
 		}
 	}
@@ -58,7 +58,7 @@ func (interactor *UnstakeInteractor) LoadTriable() ([]domain.UnstakeRequest, err
 
 	requests, err := interactor.unstakeRepository.FindAllTriable(domain.GetMaxRetry())
 	if err != nil {
-		log.Printf("Failed to load unstake records - %v\n", err.Error())
+		log.Printf("🔴 loading unstake - %v\n", err.Error())
 		return nil, err
 	}
 
@@ -74,32 +74,29 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 	for _, request := range requests {
 
-		// Check the treaury treasuryBalance.
-		treasuryBalance, err := interactor.contractInteractor.GetTreasuryBalance()
-		if err != nil {
-			log.Printf("Failed to get treasury balance - %v\n", err.Error())
-			return err
-		}
-
 		accid, err := tongo.AccountIDFromBase64Url(request.Address)
 		if err != nil {
-			log.Printf("Failed to parse wallet address %v - %v\n", request.Address, err.Error())
+			log.Printf("🔴 parsing wallet address %v - %v\n", request.Address, err.Error())
 			continue
 		}
 
-		// Treasury budget must be grater than request's tokens. If not, break the loop as the next request's tokens
-		// are more than this one (because the list are sorted).
-		// @TODO: Use get_method to find out the available budget
-		var totalBudget big.Int
-		totalBudget.SetUint64(treasuryBalance - 10)
-		if request.Tokens.Cmp(&totalBudget) > 0 {
+		// Get maximum burnable tokens as the total budget for unstaking.
+		totalBudget, err := interactor.contractInteractor.GetMaxBurnableTokens()
+		if err != nil {
+			log.Printf("🔴 getting max burnable tokens - %v\n", err.Error())
+			continue
+		}
+
+		// The budget must be grater than request's tokens. If not, neither this request nor the next ones canbe payed,
+		// because the list is sorted based on unstaking value.
+		if request.Tokens.Cmp(totalBudget) > 0 {
 			break
 		}
 
-		// @TODO: check the wallet to know if it is wating for a withdraw messages, using get_wallet_state
+		// Check the wallet to know if it is wating for a withdraw messages.
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
 		if err != nil {
-			log.Printf("Failed to get wallet state - %v\n", err.Error())
+			log.Printf("🔴 getting wallet state - %v\n", err.Error())
 			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateError)
 			continue
 		}
@@ -114,8 +111,8 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 		// Check if the budget can pay the required unstaking value.
 		// Note that each wallet may have multiple unstake requests. If so, the wallet keep the total as unstaking value.
 		// So, compare the unstaking value of the wallet against the treasury budget, not the request.Token value.
-		if walletState.Unstaking.Cmp(&totalBudget) > 0 {
-			log.Printf("Not enough budget for unstaking %v\n", request.Address)
+		if walletState.Unstaking.Cmp(totalBudget) > 0 {
+			log.Printf("🔵 Unstaking [wallet: %v] - postponed due to not enough budget\n", request.Address)
 			continue
 		}
 
@@ -123,12 +120,12 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 		err = interactor.withdraw(accid, request.Tokens)
 		if err != nil {
-			log.Printf("Failed to unstake coin for wallet address %v - %v\n", request.Address, err.Error())
+			log.Printf("🔴 unstaking [wallet: %v] - %v\n", request.Address, err.Error())
 			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateError)
 			continue
 		} else {
 			interactor.unstakeRepository.SetSuccess(request.Address, request.Tokens, request.Hash, time.Now())
-			log.Printf("Successfully unstake coin for wallet address %v.\n", request.Address)
+			log.Printf("unstaking done [wallet: %v]\n", request.Address)
 		}
 	}
 
@@ -156,7 +153,7 @@ func (interactor *UnstakeInteractor) withdraw(accid tongo.AccountID, tokens big.
 
 	err := interactor.driverWallet.Send(context.Background(), msg)
 	if err != nil {
-		log.Printf("Failed to send message - %v\n", err.Error())
+		log.Printf("🔴 sending withdraw [wallet: %v] - %v\n", accid.ToHuman(true, domain.IsTestNet()), err.Error())
 		return err
 	}
 
@@ -168,7 +165,7 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 	for _, t := range trans {
 		ht := domain.NewHTransaction(&t.Transaction)
 
-		// leave transaction if it's failed
+		// Leave transaction if it's failed.
 		if !ht.IsSucceeded() {
 			continue
 		}
@@ -185,12 +182,16 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 			accid := msg.Src()
 			cell := msg.GetBody()
 			m := domain.ReserveTokenMessage{}
-			tlb.Unmarshal(cell, &m)
+			err := tlb.Unmarshal(cell, &m)
+			if err != nil {
+				log.Printf("🔴 unmarshaling message body [trans hash: %v] - %v\n", ht.Formatter().Hash(), err.Error())
+				continue
+			}
 
 			// @TODO: Use a better conversion method
 			buff, err := m.Tokens.MarshalJSON()
 			if err != nil {
-				log.Printf("Failed to parse tokens value: %v\n", err.Error())
+				log.Printf("🔴 parsing tokens [value: %v] - %v\n", m.Tokens, err.Error())
 				continue
 			}
 			buff = buff[1 : len(buff)-1] // remove " marks from begining and end of json value

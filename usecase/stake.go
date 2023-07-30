@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"driver/domain"
+	"driver/domain/config"
 	"driver/interface/repository"
 	"log"
 	"time"
@@ -54,7 +55,7 @@ func (interactor *StakeInteractor) Store(requests []domain.StakeRequest) error {
 
 func (interactor *StakeInteractor) LoadTriable() ([]domain.StakeRequest, error) {
 
-	requests, err := interactor.stakeRepository.FindAllTriable(domain.GetMaxRetry())
+	requests, err := interactor.stakeRepository.FindAllTriable(config.GetMaxRetry())
 	if err != nil {
 		log.Printf("🔴 loading stake - %v\n", err.Error())
 		return nil, err
@@ -195,7 +196,7 @@ func (interactor *StakeInteractor) MakeStakeRequests(trans []tongo.Transaction) 
 			m := domain.SaveCoinMessage{}
 			tlb.Unmarshal(cell, &m)
 
-			addr := accid.ToHuman(true, domain.IsTestNet())
+			addr := accid.ToHuman(true, config.IsTestNet())
 			requests = append(requests, domain.StakeRequest{
 				Address:    addr,
 				RoundSince: m.RoundSince,

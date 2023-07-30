@@ -4,7 +4,7 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"driver/domain"
+	"driver/domain/config"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -64,5 +64,5 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
-	domain.ReadConfig(path)
+	config.ReadConfig(path)
 }

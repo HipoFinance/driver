@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"driver/domain"
+	"driver/domain/config"
 	"driver/interface/repository"
 	"log"
 	"math/big"
@@ -56,7 +57,7 @@ func (interactor *UnstakeInteractor) Store(requests []domain.UnstakeRequest) err
 
 func (interactor *UnstakeInteractor) LoadTriable() ([]domain.UnstakeRequest, error) {
 
-	requests, err := interactor.unstakeRepository.FindAllTriable(domain.GetMaxRetry())
+	requests, err := interactor.unstakeRepository.FindAllTriable(config.GetMaxRetry())
 	if err != nil {
 		log.Printf("🔴 loading unstake - %v\n", err.Error())
 		return nil, err
@@ -153,7 +154,7 @@ func (interactor *UnstakeInteractor) withdraw(accid tongo.AccountID, tokens big.
 
 	err := interactor.driverWallet.Send(context.Background(), msg)
 	if err != nil {
-		log.Printf("🔴 sending withdraw [wallet: %v] - %v\n", accid.ToHuman(true, domain.IsTestNet()), err.Error())
+		log.Printf("🔴 sending withdraw [wallet: %v] - %v\n", accid.ToHuman(true, config.IsTestNet()), err.Error())
 		return err
 	}
 
@@ -197,7 +198,7 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 			buff = buff[1 : len(buff)-1] // remove " marks from begining and end of json value
 			var tokens big.Int
 			tokens.UnmarshalText(buff)
-			addr := accid.ToHuman(true, domain.IsTestNet())
+			addr := accid.ToHuman(true, config.IsTestNet())
 			requests = append(requests, domain.UnstakeRequest{
 				Address:    addr,
 				Tokens:     tokens,

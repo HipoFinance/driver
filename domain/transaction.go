@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"driver/domain/config"
 	"fmt"
 	"strings"
 	"time"
@@ -165,9 +166,9 @@ func (f *HTransactionFormatter) AccountId(format string) string {
 	case AddrFormatRaw:
 		res = accid.ToRaw()
 	case AddrFormatBouncable:
-		res = accid.ToHuman(true, IsTestNet())
+		res = accid.ToHuman(true, config.IsTestNet())
 	case AddrFormatNonBouncable:
-		res = accid.ToHuman(false, IsTestNet())
+		res = accid.ToHuman(false, config.IsTestNet())
 	}
 	return res
 }

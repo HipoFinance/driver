@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"driver/domain"
+	"driver/domain/config"
 	"fmt"
 	"log"
 	"math/big"
@@ -30,7 +31,7 @@ func NewContractInteractor(client *liteapi.Client) *ContractInteractor {
 }
 
 func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState, error) {
-	code, stack, err := interactor.client.RunSmcMethod(context.Background(), domain.GetTreasuryAccountId(), "get_treasury_state", tlb.VmStack{})
+	code, stack, err := interactor.client.RunSmcMethod(context.Background(), config.GetTreasuryAccountId(), "get_treasury_state", tlb.VmStack{})
 
 	if err != nil {
 		log.Printf("🔴 getting treasury state [code = %v] - %v\n", code, err.Error())
@@ -83,7 +84,7 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 }
 
 func (interactor *ContractInteractor) GetMaxBurnableTokens() (*big.Int, error) {
-	code, stack, err := interactor.client.RunSmcMethod(context.Background(), domain.GetTreasuryAccountId(), "get_max_burnable_tokens", tlb.VmStack{})
+	code, stack, err := interactor.client.RunSmcMethod(context.Background(), config.GetTreasuryAccountId(), "get_max_burnable_tokens", tlb.VmStack{})
 
 	if err != nil {
 		log.Printf("🔴 getting max burnable tokens [code = %v] - %v\n", code, err.Error())
@@ -134,7 +135,7 @@ func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) 
 	return result, nil
 }
 func (interactor *ContractInteractor) GetTreasuryBalance() (uint64, error) {
-	state, err := interactor.client.GetAccountState(context.Background(), domain.GetTreasuryAccountId())
+	state, err := interactor.client.GetAccountState(context.Background(), config.GetTreasuryAccountId())
 	if err != nil {
 		return 0, err
 	}

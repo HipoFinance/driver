@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"database/sql"
-	"driver/domain"
+	"driver/domain/config"
 	"driver/infrastructure/dbhandler"
 	"driver/interface/repository"
 	"driver/usecase"
@@ -17,7 +17,7 @@ import (
 
 func defaultDependencyInject() {
 	var err error
-	dbURI := domain.GetDbUri()
+	dbURI := config.GetDbUri()
 	dbPool, err = sql.Open("postgres", dbURI)
 	if err != nil {
 		log.Fatal(err)
@@ -29,10 +29,10 @@ func defaultDependencyInject() {
 
 	dbHandler := dbhandler.DBHandler{DB: dbPool}
 
-	switch strings.ToLower(domain.GetNetwork()) {
-	case domain.MainNetwork:
+	switch strings.ToLower(config.GetNetwork()) {
+	case config.MainNetwork:
 		tongoClient, err = liteapi.NewClientWithDefaultMainnet()
-	case domain.TestNetwork:
+	case config.TestNetwork:
 		tongoClient, err = liteapi.NewClientWithDefaultTestnet()
 	default:
 		fmt.Printf("⛔️ Configuration paramet 'network' must be either 'main' or 'test' only.")
@@ -43,7 +43,7 @@ func defaultDependencyInject() {
 		log.Fatal("Unable to create tongo client: ", err)
 	}
 
-	driverWallet, err = wallet.New(domain.GetDriverWalletPrivateKey(), wallet.V4R2, 0, nil, tongoClient)
+	driverWallet, err = wallet.New(config.GetDriverWalletPrivateKey(), wallet.V4R2, 0, nil, tongoClient)
 	if err != nil {
 		log.Fatalf("Unable to connect to driver wallet - %v\n", err.Error())
 		return

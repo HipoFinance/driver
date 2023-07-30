@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"driver/domain"
+	"driver/domain/config"
 	"fmt"
 	"log"
 	"os"
@@ -26,22 +27,26 @@ var startCmd = &cobra.Command{
 		defaultDependencyInject()
 
 		fmt.Printf("\n"+
+			"----------------------------------\n"+
 			"Network:             %s\n"+
 			"Treasury wallet:     %v\n"+
+			"Driver Interval:     %v\n"+
 			"Extractoin Interval: %v\n"+
 			"Stake Interval:      %v\n"+
-			"Unstake Interval:    %v\n",
-			domain.GetNetwork(),
-			domain.GetTreasuryAddress(),
-			domain.GetExtractInterval(),
-			domain.GetStakeInterval(),
-			domain.GetUnstakeInterval())
+			"Unstake Interval:    %v\n"+
+			"----------------------------------\n",
+			config.GetNetwork(),
+			config.GetTreasuryAddress(),
+			driverWallet.GetAddress().ToHuman(true, config.IsTestNet()),
+			config.GetExtractInterval(),
+			config.GetStakeInterval(),
+			config.GetUnstakeInterval())
 
-		domain.GetTreasuryAddress()
+		config.GetTreasuryAddress()
 
-		extractTiker := schedule(extract, domain.GetExtractInterval(), quit)
-		stakeTicker := schedule(stake, domain.GetStakeInterval(), quit)
-		unstakeTicker := schedule(unstake, domain.GetUnstakeInterval(), quit)
+		extractTiker := schedule(extract, config.GetExtractInterval(), quit)
+		stakeTicker := schedule(stake, config.GetStakeInterval(), quit)
+		unstakeTicker := schedule(unstake, config.GetUnstakeInterval(), quit)
 
 		signal.Ignore()
 		stop := make(chan os.Signal, 1)
@@ -75,7 +80,7 @@ func schedule(task func(), interval time.Duration, done chan bool) *time.Ticker 
 }
 
 func extract() {
-	accountId := domain.GetTreasuryAccountId()
+	accountId := config.GetTreasuryAccountId()
 
 	extractResult, err := extractInteractor.Extract(accountId)
 	if err != nil {

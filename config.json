@@ -2,7 +2,7 @@
     "service_db_uri": "postgresql://alireza@localhost:5432/hipo?sslmode=disable",
 
     "network": "testnet",
-    "treasury_address": "kQAeHZvLpzHyZAEZ_RpUhOP2WLukiGoxeoFZdPZfDqsZCqur",
+    "treasury_address": "kQAjvBlA6Gt0BZhvM9_PgBDVv1_EkRuMYZ3XxdaXlKRyCeaI",
 
     "mnemonic": "subway under balance inspire glad stuff tongue pudding nut cool front any ocean shed view uncle envelope control outside false skate deny dust lens",
     "mnemonic_url": "",

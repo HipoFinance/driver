@@ -17,7 +17,7 @@ const (
 		values (
 			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null
 		)
-	on conflict (address, tokens, hash) do
+	on conflict (hash) do
 		update set
 			info = $4::jsonb
 `
@@ -26,7 +26,7 @@ const (
 	select
 		address, tokens, hash, state, retried, info, create_time, retry_time, success_time
 	from unstakes
-	where address = $1 and tokens = $2 and hash = $3
+	where hash = $1
 `
 
 	sqlUnstakeFindAllTriable = `
@@ -38,20 +38,20 @@ const (
 
 	sqlUnstakeSetState = `
 	update unstakes
-		set state = $4
-	where address = $1 and tokens = $2 and hash = $3
+		set state = $2
+	where hash = $1
 `
 
 	sqlUntakeSetRetrying = `
 	update unstakes
-		set retried = retried + 1, retry_time = $4, state = 'inprogress'
-	where address = $1 and tokens = $2 and hash = $3
+		set retried = retried + 1, retry_time = $2, state = 'inprogress'
+	where hash = $1
 `
 
 	sqlUntakeSetSucess = `
 	update unstakes
-		set success_time = $4, state = 'done'
-	where address = $1 and tokens = $2 and hash = $3
+		set success_time = $2, state = 'done'
+	where hash = $1
 `
 )
 
@@ -115,7 +115,7 @@ func (repo *UnstakeRepository) InsertIfNotExists(address string, tokens big.Int,
 		},
 		{
 			Query:   sqlUnstakeFind,
-			Args:    []interface{}{address, tokens.String(), hash},
+			Args:    []interface{}{hash},
 			ReadOne: readUnstake,
 		},
 	})
@@ -153,7 +153,7 @@ func (repo *UnstakeRepository) SetState(address string, tokens big.Int, hash str
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUnstakeSetState,
-			Args:   []interface{}{address, tokens.String(), hash, state},
+			Args:   []interface{}{hash, state},
 			Affect: 1,
 		},
 	})
@@ -164,7 +164,7 @@ func (repo *UnstakeRepository) SetRetrying(address string, tokens big.Int, hash 
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUntakeSetRetrying,
-			Args:   []interface{}{address, tokens.String(), hash, timestamp},
+			Args:   []interface{}{hash, timestamp},
 			Affect: 1,
 		},
 	})
@@ -175,7 +175,7 @@ func (repo *UnstakeRepository) SetSuccess(address string, tokens big.Int, hash s
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUntakeSetSucess,
-			Args:   []interface{}{address, tokens.String(), hash, timestamp},
+			Args:   []interface{}{hash, timestamp},
 			Affect: 1,
 		},
 	})

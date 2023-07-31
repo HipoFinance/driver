@@ -16,7 +16,7 @@ const (
 		values (
 			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null
 		)
-	on conflict (address, round_since, hash) do
+	on conflict (hash) do
 		update set
 			info = $4::jsonb
 `
@@ -25,7 +25,7 @@ const (
 	select
 		address, round_since, hash, state, retried, info, create_time, retry_time, success_time
 	from stakes
-	where address = $1 and round_since = $2 and hash = $3
+	where hash = $1
 `
 
 	sqlStakeFindAllTriable = `
@@ -37,20 +37,20 @@ const (
 
 	sqlStakeSetState = `
 	update stakes
-		set state = $4
-	where address = $1 and round_since = $2 and hash = $3
+		set state = $2
+	where hash = $1
 `
 
 	sqlStakeSetRetrying = `
 	update stakes
-		set retried = retried + 1, retry_time = $4, state = 'inprogress'
-	where address = $1 and round_since = $2 and hash = $3
+		set retried = retried + 1, retry_time = $2, state = 'inprogress'
+	where hash = $1
 `
 
 	sqlStakeSetSucess = `
 	update stakes
-		set success_time = $4, state = 'done'
-	where address = $1 and round_since = $2 and hash = $3
+		set success_time = $2, state = 'done'
+	where hash = $1
 `
 )
 
@@ -103,7 +103,7 @@ func (repo *StakeRepository) InsertIfNotExists(address string, roundSince uint32
 		},
 		{
 			Query:   sqlStakeFind,
-			Args:    []interface{}{address, roundSince, hash},
+			Args:    []interface{}{hash},
 			ReadOne: readStake,
 		},
 	})
@@ -116,7 +116,7 @@ func (repo *StakeRepository) Find(address string, roundSince uint32, hash string
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlStakeFind,
-			Args:    []interface{}{address, roundSince, hash},
+			Args:    []interface{}{hash},
 			ReadOne: readStake,
 		},
 	})
@@ -141,7 +141,7 @@ func (repo *StakeRepository) SetState(address string, roundSince uint32, hash st
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlStakeSetState,
-			Args:   []interface{}{address, roundSince, hash, state},
+			Args:   []interface{}{hash, state},
 			Affect: 1,
 		},
 	})
@@ -152,7 +152,7 @@ func (repo *StakeRepository) SetRetrying(address string, roundSince uint32, hash
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlStakeSetRetrying,
-			Args:   []interface{}{address, roundSince, hash, timestamp},
+			Args:   []interface{}{hash, timestamp},
 			Affect: 1,
 		},
 	})
@@ -163,7 +163,7 @@ func (repo *StakeRepository) SetSuccess(address string, roundSince uint32, hash 
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlStakeSetSucess,
-			Args:   []interface{}{address, roundSince, hash, timestamp},
+			Args:   []interface{}{hash, timestamp},
 			Affect: 1,
 		},
 	})

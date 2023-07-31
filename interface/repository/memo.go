@@ -48,20 +48,20 @@ func readMemo(scan func(...interface{}) error) (interface{}, error) {
 	return &r, nil
 }
 
-func readAllMemos(all interface{}, scan func(...interface{}) error) (interface{}, error) {
-	r := domain.Memo{}
-	var jstr []byte
-	err := scan(
-		&r.Key, &jstr,
-	)
-	if err == nil {
-		r.Memo = string(jstr)
-	}
+// func readAllMemos(all interface{}, scan func(...interface{}) error) (interface{}, error) {
+// 	r := domain.Memo{}
+// 	var jstr []byte
+// 	err := scan(
+// 		&r.Key, &jstr,
+// 	)
+// 	if err == nil {
+// 		r.Memo = string(jstr)
+// 	}
 
-	list := all.([]domain.Memo)
-	list = append(list, r)
-	return list, err
-}
+// 	list := all.([]domain.Memo)
+// 	list = append(list, r)
+// 	return list, err
+// }
 
 func (repo *MemoRepository) Upsert(key string, memo domain.Memorable) (*domain.Memo, error) {
 

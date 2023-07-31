@@ -84,13 +84,13 @@ func extract() {
 
 	extractResult, err := extractInteractor.Extract(accountId)
 	if err != nil {
-		fmt.Printf("❌ No request is extracted: %v", err.Error())
+		fmt.Printf("❌ No request is extracted: %v\n", err.Error())
 		return
 	}
 
 	err = extractInteractor.Store(extractResult)
 	if err != nil {
-		fmt.Printf("❌ No request is stored: %v", err.Error())
+		fmt.Printf("❌ No request is stored: %v\n", err.Error())
 		return
 	}
 

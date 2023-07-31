@@ -14,8 +14,7 @@ create table stakes
     retry_time   timestamptz,
     success_time timestamptz,
 
--- @TODO: hash can be used as primary key by single
-    primary key (address, round_since, hash)
+    primary key (hash)
 );
 
 create table unstakes
@@ -30,8 +29,7 @@ create table unstakes
     retry_time   timestamptz,
     success_time timestamptz,
     
--- @TODO: hash can be used as primary key by single
-    primary key (address, tokens, hash)
+    primary key (hash)
 );
 
 create table memos

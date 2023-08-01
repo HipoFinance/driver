@@ -58,6 +58,7 @@ func defaultDependencyInject() {
 	stakeInteractor = usecase.NewStakeInteractor(tongoClient, memoInteractor, contractInteractor, stakeRepository, &driverWallet)
 	unstakeInteractor = usecase.NewUnstakeInteractor(tongoClient, memoInteractor, contractInteractor, unstakeRepository, &driverWallet)
 	extractInteractor = usecase.NewExtractInteractor(tongoClient, memoInteractor, contractInteractor, stakeInteractor, unstakeInteractor, &driverWallet)
+	statisticInteractor = usecase.NewStatisticInteractor(tongoClient)
 }
 
 var dbPool *sql.DB
@@ -65,6 +66,7 @@ var tongoClient *liteapi.Client
 var stakeInteractor *usecase.StakeInteractor
 var unstakeInteractor *usecase.UnstakeInteractor
 var extractInteractor *usecase.ExtractInteractor
+var statisticInteractor *usecase.StatisticInteractor
 var contractInteractor *usecase.ContractInteractor
 var memoInteractor *usecase.MemoInteractor
 var driverWallet wallet.Wallet

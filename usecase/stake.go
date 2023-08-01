@@ -115,7 +115,7 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 			}
 
 			if _, exist := walletState.Staking[roundSince]; !exist {
-				log.Printf("🔵 Wallet has no stake request.")
+				log.Printf("🔵 wallet has no stake request.")
 				interactor.stakeRepository.SetState(request.Address, roundSince, request.Hash, domain.RequestStateSkipped)
 				continue
 			}
@@ -127,7 +127,7 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 				continue
 			} else {
 				interactor.stakeRepository.SetSuccess(request.Address, roundSince, request.Hash, time.Now())
-				log.Printf("Successfully stakeed for wallet address %v.\n", request.Address)
+				log.Printf("staking done [wallet: %v]\n\n", request.Address)
 			}
 		}
 	}

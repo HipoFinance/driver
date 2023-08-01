@@ -91,6 +91,7 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 		// The budget must be grater than request's tokens. If not, neither this request nor the next ones canbe payed,
 		// because the list is sorted based on unstaking value.
 		if request.Tokens.Cmp(totalBudget) > 0 {
+			log.Printf("🔵 unstaking [wallet: %v] - requested tokens' value is more than available budget\n", request.Address)
 			break
 		}
 
@@ -113,7 +114,7 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 		// Note that each wallet may have multiple unstake requests. If so, the wallet keep the total as unstaking value.
 		// So, compare the unstaking value of the wallet against the treasury budget, not the request.Token value.
 		if walletState.Unstaking.Cmp(totalBudget) > 0 {
-			log.Printf("🔵 Unstaking [wallet: %v] - postponed due to not enough budget\n", request.Address)
+			log.Printf("🔵 unstaking [wallet: %v] - postponed due to not enough budget\n", request.Address)
 			continue
 		}
 

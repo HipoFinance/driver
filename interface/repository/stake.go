@@ -112,7 +112,7 @@ func (repo *StakeRepository) InsertIfNotExists(address string, roundSince uint32
 	return result, err
 }
 
-func (repo *StakeRepository) Find(address string, roundSince uint32, hash string) (*domain.StakeRequest, error) {
+func (repo *StakeRepository) Find(hash string) (*domain.StakeRequest, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlStakeFind,
@@ -137,7 +137,7 @@ func (repo *StakeRepository) FindAllTriable(maxRetry int) ([]domain.StakeRequest
 	return result, err
 }
 
-func (repo *StakeRepository) SetState(address string, roundSince uint32, hash string, state string) error {
+func (repo *StakeRepository) SetState(hash string, state string) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlStakeSetState,
@@ -148,7 +148,7 @@ func (repo *StakeRepository) SetState(address string, roundSince uint32, hash st
 	return err
 }
 
-func (repo *StakeRepository) SetRetrying(address string, roundSince uint32, hash string, timestamp time.Time) error {
+func (repo *StakeRepository) SetRetrying(hash string, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlStakeSetRetrying,
@@ -159,7 +159,7 @@ func (repo *StakeRepository) SetRetrying(address string, roundSince uint32, hash
 	return err
 }
 
-func (repo *StakeRepository) SetSuccess(address string, roundSince uint32, hash string, timestamp time.Time) error {
+func (repo *StakeRepository) SetSuccess(hash string, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlStakeSetSucess,

@@ -124,11 +124,11 @@ func (repo *UnstakeRepository) InsertIfNotExists(address string, tokens big.Int,
 	return result, err
 }
 
-func (repo *UnstakeRepository) Find(address string, tokens big.Int, hash string) (*domain.UnstakeRequest, error) {
+func (repo *UnstakeRepository) Find(hash string) (*domain.UnstakeRequest, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlUnstakeFind,
-			Args:    []interface{}{address, tokens.String(), hash},
+			Args:    []interface{}{hash},
 			ReadOne: readUnstake,
 		},
 	})
@@ -149,7 +149,7 @@ func (repo *UnstakeRepository) FindAllTriable(maxRetry int) ([]domain.UnstakeReq
 	return result, err
 }
 
-func (repo *UnstakeRepository) SetState(address string, tokens big.Int, hash string, state string) error {
+func (repo *UnstakeRepository) SetState(hash string, state string) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUnstakeSetState,
@@ -160,7 +160,7 @@ func (repo *UnstakeRepository) SetState(address string, tokens big.Int, hash str
 	return err
 }
 
-func (repo *UnstakeRepository) SetRetrying(address string, tokens big.Int, hash string, timestamp time.Time) error {
+func (repo *UnstakeRepository) SetRetrying(hash string, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUntakeSetRetrying,
@@ -171,7 +171,7 @@ func (repo *UnstakeRepository) SetRetrying(address string, tokens big.Int, hash 
 	return err
 }
 
-func (repo *UnstakeRepository) SetSuccess(address string, tokens big.Int, hash string, timestamp time.Time) error {
+func (repo *UnstakeRepository) SetSuccess(hash string, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:  sqlUntakeSetSucess,

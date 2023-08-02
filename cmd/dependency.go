@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"database/sql"
+	"driver/domain"
 	"driver/domain/config"
 	"driver/infrastructure/dbhandler"
 	"driver/interface/repository"
@@ -59,14 +60,21 @@ func defaultDependencyInject() {
 	unstakeInteractor = usecase.NewUnstakeInteractor(tongoClient, memoInteractor, contractInteractor, unstakeRepository, &driverWallet)
 	extractInteractor = usecase.NewExtractInteractor(tongoClient, memoInteractor, contractInteractor, stakeInteractor, unstakeInteractor, &driverWallet)
 	statisticInteractor = usecase.NewStatisticInteractor(tongoClient)
+
+	messengerCh := make(chan domain.MessagePack, 10)
+	stakeCh := stakeInteractor.InitializeChannel(messengerCh)
+	unstakeCh := unstakeInteractor.InitializeChannel(messengerCh)
+
+	messengerInteractor = usecase.NewMessengerInteractor(tongoClient, &driverWallet, messengerCh, stakeCh, unstakeCh)
 }
 
 var dbPool *sql.DB
 var tongoClient *liteapi.Client
+var memoInteractor *usecase.MemoInteractor
+var contractInteractor *usecase.ContractInteractor
 var stakeInteractor *usecase.StakeInteractor
 var unstakeInteractor *usecase.UnstakeInteractor
 var extractInteractor *usecase.ExtractInteractor
 var statisticInteractor *usecase.StatisticInteractor
-var contractInteractor *usecase.ContractInteractor
-var memoInteractor *usecase.MemoInteractor
+var messengerInteractor *usecase.MessengerInteractor
 var driverWallet wallet.Wallet

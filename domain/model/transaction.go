@@ -1,4 +1,4 @@
-package domain
+package model
 
 import (
 	"driver/domain/config"

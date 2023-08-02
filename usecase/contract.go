@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"context"
-	"driver/domain"
 	"driver/domain/config"
+	"driver/domain/model"
 	"fmt"
 	"log"
 	"math/big"
@@ -30,7 +30,7 @@ func NewContractInteractor(client *liteapi.Client) *ContractInteractor {
 	}
 }
 
-func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState, error) {
+func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, error) {
 	code, stack, err := interactor.client.RunSmcMethod(context.Background(), config.GetTreasuryAccountId(), "get_treasury_state", tlb.VmStack{})
 
 	if err != nil {
@@ -58,7 +58,7 @@ func (interactor *ContractInteractor) GetTreasuryState() (*domain.TreasuryState,
 		return nil, ErrorUnexpectedTreasuryState
 	}
 
-	result := &domain.TreasuryState{}
+	result := &model.TreasuryState{}
 
 	result.TotalCoins.Set(getBigIntValue(stack[0], 0))
 	result.TotalTokens.Set(getBigIntValue(stack[1], 0))
@@ -101,7 +101,7 @@ func (interactor *ContractInteractor) GetMaxBurnableTokens() (*big.Int, error) {
 	return result, nil
 }
 
-func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) (*domain.WalletState, error) {
+func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) (*model.WalletState, error) {
 	code, stack, err := interactor.client.RunSmcMethod(context.Background(), accountId, "get_wallet_state", tlb.VmStack{})
 
 	if err != nil {
@@ -116,7 +116,7 @@ func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) 
 		return nil, ErrorUnexpectedWalletState
 	}
 
-	result := &domain.WalletState{}
+	result := &model.WalletState{}
 
 	result.Tokens.Set(getBigIntValue(stack[0], 0))
 	result.Unstaking.Set(getBigIntValue(stack[2], 0))

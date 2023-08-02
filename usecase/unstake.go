@@ -1,9 +1,9 @@
 package usecase
 
 import (
-	"context"
 	"driver/domain"
 	"driver/domain/config"
+	"driver/domain/model"
 	"driver/interface/repository"
 	"log"
 	"math/big"
@@ -11,14 +11,9 @@ import (
 	"time"
 
 	"github.com/tonkeeper/tongo"
-	"github.com/tonkeeper/tongo/boc"
 	"github.com/tonkeeper/tongo/liteapi"
 	"github.com/tonkeeper/tongo/tlb"
 	tgwallet "github.com/tonkeeper/tongo/wallet"
-)
-
-const (
-	OpcodeWithdraw = uint32(0x469bd91e)
 )
 
 type UnstakeInteractor struct {
@@ -27,6 +22,11 @@ type UnstakeInteractor struct {
 	contractInteractor *ContractInteractor
 	unstakeRepository  *repository.UnstakeRepository
 	driverWallet       *tgwallet.Wallet
+
+	messengerCh chan domain.MessagePack
+	resposeCh   chan Response
+
+	requestMap map[string]domain.UnstakeRequest
 }
 
 func NewUnstakeInteractor(client *liteapi.Client,
@@ -41,7 +41,18 @@ func NewUnstakeInteractor(client *liteapi.Client,
 		unstakeRepository:  unstakeRepository,
 		driverWallet:       driverWallet,
 	}
+
+	interactor.requestMap = make(map[string]domain.UnstakeRequest)
 	return interactor
+}
+
+func (interactor *UnstakeInteractor) InitializeChannel(messengerCh chan domain.MessagePack) chan Response {
+
+	interactor.messengerCh = messengerCh
+
+	interactor.resposeCh = make(chan Response, 5)
+	go interactor.ListenOnResponse(interactor.resposeCh)
+	return interactor.resposeCh
 }
 
 func (interactor *UnstakeInteractor) Store(requests []domain.UnstakeRequest) error {
@@ -91,7 +102,6 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 		// The budget must be grater than request's tokens. If not, neither this request nor the next ones canbe payed,
 		// because the list is sorted based on unstaking value.
 		if request.Tokens.Cmp(totalBudget) > 0 {
-			log.Printf("🔵 unstaking [wallet: %v] - requested tokens' value is more than available budget\n", request.Address)
 			break
 		}
 
@@ -99,14 +109,14 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
 		if err != nil {
 			log.Printf("🔴 getting wallet state - %v\n", err.Error())
-			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateError)
+			interactor.unstakeRepository.SetState(request.Hash, domain.RequestStateError)
 			continue
 		}
 
 		// Skip the request if the wallet has no unstaking
 		if walletState.Unstaking.Cmp(big.NewInt(0)) == 0 {
 			log.Printf("No request for unstaking %v\n", request.Address)
-			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateSkipped)
+			interactor.unstakeRepository.SetState(request.Hash, domain.RequestStateSkipped)
 			continue
 		}
 
@@ -118,54 +128,38 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 			continue
 		}
 
-		interactor.unstakeRepository.SetRetrying(request.Address, request.Tokens, request.Hash, time.Now())
+		interactor.unstakeRepository.SetRetrying(request.Hash, time.Now())
 
-		err = interactor.withdraw(accid, request.Tokens)
-		if err != nil {
-			log.Printf("🔴 unstaking [wallet: %v] - %v\n", request.Address, err.Error())
-			interactor.unstakeRepository.SetState(request.Address, request.Tokens, request.Hash, domain.RequestStateError)
-			continue
-		} else {
-			interactor.unstakeRepository.SetSuccess(request.Address, request.Tokens, request.Hash, time.Now())
-			log.Printf("unstaking done [wallet: %v]\n", request.Address)
+		reference := request.Hash
+		mp := domain.MessagePack{
+			Issuer:    IssuerUnstake,
+			Reference: reference,
+			Message:   interactor.makeMessage(accid, &request),
 		}
+
+		interactor.requestMap[reference] = request
+		interactor.messengerCh <- mp
 	}
 
 	return nil
 }
 
-func (interactor *UnstakeInteractor) withdraw(accid tongo.AccountID, tokens big.Int) error {
-	queryId := uint64(time.Now().Unix())
+func (interactor *UnstakeInteractor) makeMessage(accid tongo.AccountID, request *domain.UnstakeRequest) domain.Messagable {
 
-	// @TODO: complete the cell data
-	cell := boc.NewCell()
-	cell.WriteUint(uint64(OpcodeWithdraw), 32) // opcode
-	cell.WriteUint(queryId, 64)                // query id
-	cell.WriteUint(0, 2)                       // return excess
-
-	msg := tgwallet.Message{
-		Amount:  100000000, //  tlb.Grams
-		Address: accid,     //  tongo.AccountID
-		Body:    cell,      //  *boc.Cell
-		Code:    nil,       //  *boc.Cell
-		Data:    nil,       //  *boc.Cell
-		Bounce:  true,      //  bool
-		Mode:    1,         //  uint8	/ Pay transfer fees separately from the message value /
+	return domain.ReserveTokenMessage{
+		AccountId: accid,
+		Opcode:    domain.OpcodeStakeCoin,
+		QuieryId:  uint64(time.Now().Unix()),
+		// Tokens:    request.Tokens,
+		// Owner:
+		// ReturnExcess:
 	}
-
-	err := interactor.driverWallet.Send(context.Background(), msg)
-	if err != nil {
-		log.Printf("🔴 sending withdraw [wallet: %v] - %v\n", accid.ToHuman(true, config.IsTestNet()), err.Error())
-		return err
-	}
-
-	return nil
 }
 
 func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transaction) []domain.UnstakeRequest {
 	requests := make([]domain.UnstakeRequest, 0, 1)
 	for _, t := range trans {
-		ht := domain.NewHTransaction(&t.Transaction)
+		ht := model.NewHTransaction(&t.Transaction)
 
 		// Leave transaction if it's failed.
 		if !ht.IsSucceeded() {
@@ -210,4 +204,30 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 	}
 
 	return requests
+}
+
+func (interactor *UnstakeInteractor) ListenOnResponse(respCh chan Response) {
+	// @TODO: implement a way to end the loop and close the channel
+	for {
+		resp := <-respCh
+
+		reference := resp.reference
+		request, exist := interactor.requestMap[reference]
+		// log.Printf("=--> [resp: %v]\n", resp)
+		if !exist {
+			log.Printf("🔴 staking [hash: %v] - request does not exist.\n", resp.reference)
+			continue
+		}
+		// log.Printf("=--> [req: %v]\n", request)
+
+		if !resp.ok {
+			log.Printf("🔴 unstaking [wallet: %v] - %v\n", request.Address, resp.err.Error())
+			interactor.unstakeRepository.SetState(request.Hash, domain.RequestStateError)
+		} else {
+			interactor.unstakeRepository.SetSuccess(request.Hash, time.Now())
+			log.Printf("unstaking done [wallet: %v]\n", request.Address)
+		}
+
+		delete(interactor.requestMap, reference)
+	}
 }

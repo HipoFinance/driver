@@ -44,10 +44,12 @@ var startCmd = &cobra.Command{
 
 		config.GetTreasuryAddress()
 
-		// extractTiker := schedule(extract, config.GetExtractInterval(), quit)
-		// stakeTicker := schedule(stake, config.GetStakeInterval(), quit)
-		// unstakeTicker := schedule(unstake, config.GetUnstakeInterval(), quit)
-		statisticTicker := schedule(statistic, 5, quit)
+		extractTiker := schedule(extract, config.GetExtractInterval(), quit)
+		stakeTicker := schedule(stake, config.GetStakeInterval(), quit)
+		unstakeTicker := schedule(unstake, config.GetUnstakeInterval(), quit)
+		// statisticTicker := schedule(statistic, 5, quit)
+
+		go messengerInteractor.ListenOnChannel()
 
 		signal.Ignore()
 		stop := make(chan os.Signal, 1)
@@ -55,10 +57,10 @@ var startCmd = &cobra.Command{
 		s := <-stop
 		log.Printf("Got signal '%v', stopping", s)
 
-		// extractTiker.Stop()
-		// stakeTicker.Stop()
-		// unstakeTicker.Stop()
-		statisticTicker.Stop()
+		extractTiker.Stop()
+		stakeTicker.Stop()
+		unstakeTicker.Stop()
+		// statisticTicker.Stop()
 	},
 }
 

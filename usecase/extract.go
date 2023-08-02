@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"driver/domain"
+	"driver/domain/model"
 	"fmt"
 	"log"
 
@@ -64,10 +65,10 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	}
 
 	// Keep the first processing transaction's hash, so that in next call, stop searching through the processed transactions.
-	var firstTrans *domain.HTransaction
+	var firstTrans *model.HTransaction
 	firstTransHash := ""
 	if len(trans) > 0 {
-		firstTrans = domain.NewHTransaction(&trans[0].Transaction)
+		firstTrans = model.NewHTransaction(&trans[0].Transaction)
 		firstTransHash = firstTrans.Formatter().Hash()
 	}
 

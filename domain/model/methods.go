@@ -1,4 +1,4 @@
-package domain
+package model
 
 import (
 	"math/big"
@@ -30,20 +30,4 @@ type WalletState struct {
 	Tokens    big.Int
 	Staking   map[uint32]tlb.Any
 	Unstaking big.Int
-}
-
-type SaveCoinMessage struct {
-	Opcode       uint32
-	QuieryId     uint64
-	Amount       tlb.Grams
-	RoundSince   uint32
-	ReturnExcess tlb.MsgAddress
-}
-
-type ReserveTokenMessage struct {
-	Opcode       uint32
-	QuieryId     uint64
-	Tokens       tlb.Grams
-	Owner        tlb.MsgAddress
-	ReturnExcess tlb.MsgAddress
 }

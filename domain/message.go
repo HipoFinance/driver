@@ -1,176 +1,88 @@
 package domain
 
 import (
+	"time"
+
 	"github.com/tonkeeper/tongo"
 	"github.com/tonkeeper/tongo/boc"
 	"github.com/tonkeeper/tongo/tlb"
+	"github.com/tonkeeper/tongo/wallet"
 )
 
-type HMessage struct {
-	msg *tlb.Message
+const (
+	OpcodeStakeCoin = uint32(0x4cae3ab1)
+	OpcodeWithdraw  = uint32(0x469bd91e)
+)
+
+type MessagePack struct {
+	Issuer    string
+	Reference string
+	Message   Messagable
 }
 
-func NewHMessage(msg *tlb.Message) *HMessage {
-	return &HMessage{
-		msg: msg,
-	}
+type Messagable interface {
+	MakeMessage() *wallet.Message
 }
 
-func (m *HMessage) Opcode() uint32 {
-	body, _ := m.msg.Body.Value.MarshalJSON()
+type SaveCoinMessage struct {
+	AccountId    tongo.AccountID
+	Opcode       uint32
+	QuieryId     uint64
+	Amount       tlb.Grams
+	RoundSince   uint32
+	ReturnExcess tlb.MsgAddress
+}
+
+type ReserveTokenMessage struct {
+	AccountId    tongo.AccountID
+	Opcode       uint32
+	QuieryId     uint64
+	Tokens       tlb.Grams
+	Owner        tlb.MsgAddress
+	ReturnExcess tlb.MsgAddress
+}
+
+func (msg SaveCoinMessage) MakeMessage() *wallet.Message {
+
+	queryId := uint64(time.Now().Unix())
+
 	cell := boc.NewCell()
-	cell.UnmarshalJSON(body)
-	opcode, _ := cell.ReadUint(32)
-	return uint32(opcode)
+	cell.WriteUint(uint64(OpcodeStakeCoin), 32) // opcode
+	cell.WriteUint(queryId, 64)                 // query id
+	cell.WriteUint(uint64(msg.RoundSince), 32)  // round since
+	cell.WriteUint(0, 2)                        // return excess
+
+	wmsg := wallet.Message{
+		Amount:  100000000,     //  tlb.Grams
+		Address: msg.AccountId, //  tongo.AccountID
+		Body:    cell,          //  *boc.Cell
+		Code:    nil,           //  *boc.Cell
+		Data:    nil,           //  *boc.Cell
+		Bounce:  true,          //  bool
+		Mode:    1,             //  uint8	/ Pay transfer fees separately from the message value /
+	}
+
+	return &wmsg
 }
 
-func (m *HMessage) GetBody() *boc.Cell {
-	body, _ := m.msg.Body.Value.MarshalJSON()
+func (msg ReserveTokenMessage) MakeMessage() *wallet.Message {
+
+	queryId := uint64(time.Now().Unix())
+
 	cell := boc.NewCell()
-	cell.UnmarshalJSON(body)
-	return cell
-}
+	cell.WriteUint(uint64(OpcodeWithdraw), 32) // opcode
+	cell.WriteUint(queryId, 64)                // query id
+	cell.WriteUint(0, 2)                       // return excess
 
-func (m *HMessage) ImportFee() tlb.Grams {
-	var fee tlb.Grams
-	fee = 0
-	if m.msg.Info.ExtInMsgInfo != nil {
-		fee = m.msg.Info.ExtInMsgInfo.ImportFee
-	}
-	return fee
-}
-
-func (m *HMessage) FwdFee() tlb.Grams {
-	var fee tlb.Grams
-	fee = 0
-	if m.msg.Info.IntMsgInfo != nil {
-		fee = m.msg.Info.IntMsgInfo.FwdFee
-	}
-	return fee
-}
-
-func (m *HMessage) IhrFee() tlb.Grams {
-	var fee tlb.Grams
-	fee = 0
-	if m.msg.Info.IntMsgInfo != nil {
-		fee = m.msg.Info.IntMsgInfo.IhrFee
-	}
-	return fee
-}
-
-func (m *HMessage) Value() tlb.Grams {
-	var value tlb.Grams
-	value = 0
-	if m.msg.Info.IntMsgInfo != nil {
-		value = m.msg.Info.IntMsgInfo.Value.Grams
-	}
-	return value
-}
-
-func (m *HMessage) Src() *tongo.AccountID {
-	src := m.srcInt()
-	if src != nil {
-		return src
+	wmsg := wallet.Message{
+		Amount:  100000000,     //  tlb.Grams
+		Address: msg.AccountId, //  tongo.AccountID
+		Body:    cell,          //  *boc.Cell
+		Code:    nil,           //  *boc.Cell
+		Data:    nil,           //  *boc.Cell
+		Bounce:  true,          //  bool
+		Mode:    1,             //  uint8	/ Pay transfer fees separately from the message value /
 	}
 
-	src = m.srcExtIn()
-	if src != nil {
-		return src
-	}
-	src = m.srcExtOut()
-	if src != nil {
-		return src
-	}
-
-	return nil
-}
-
-func (m *HMessage) Dest() *tongo.AccountID {
-	dest := m.destInt()
-	if dest != nil {
-		return dest
-	}
-
-	dest = m.destExtIn()
-	if dest != nil {
-		return dest
-	}
-
-	dest = m.destExtOut()
-	if dest != nil {
-		return dest
-	}
-
-	return nil
-}
-
-func (m *HMessage) srcInt() *tongo.AccountID {
-	value := tlb.MsgAddress{}
-	if m.msg.Info.IntMsgInfo != nil {
-		value = m.msg.Info.IntMsgInfo.Src
-	}
-	acntId, _ := tongo.AccountIDFromTlb(value)
-	return acntId
-}
-
-func (m *HMessage) destInt() *tongo.AccountID {
-	value := tlb.MsgAddress{}
-	if m.msg.Info.IntMsgInfo != nil {
-		value = m.msg.Info.IntMsgInfo.Dest
-	}
-	acntId, _ := tongo.AccountIDFromTlb(value)
-	return acntId
-}
-
-func (m *HMessage) srcExtIn() *tongo.AccountID {
-	value := tlb.MsgAddress{}
-	if m.msg.Info.ExtInMsgInfo != nil {
-		value = m.msg.Info.ExtInMsgInfo.Src
-	}
-	acntId, _ := tongo.AccountIDFromTlb(value)
-	return acntId
-}
-
-func (m *HMessage) destExtIn() *tongo.AccountID {
-	value := tlb.MsgAddress{}
-	if m.msg.Info.ExtInMsgInfo != nil {
-		value = m.msg.Info.ExtInMsgInfo.Dest
-	}
-	acntId, _ := tongo.AccountIDFromTlb(value)
-	return acntId
-}
-
-func (m *HMessage) srcExtOut() *tongo.AccountID {
-	value := tlb.MsgAddress{}
-	if m.msg.Info.ExtOutMsgInfo != nil {
-		value = m.msg.Info.ExtOutMsgInfo.Src
-	}
-	acntId, _ := tongo.AccountIDFromTlb(value)
-	return acntId
-}
-
-func (m *HMessage) destExtOut() *tongo.AccountID {
-	value := tlb.MsgAddress{}
-	if m.msg.Info.ExtOutMsgInfo != nil {
-		value = m.msg.Info.ExtOutMsgInfo.Dest
-	}
-	acntId, _ := tongo.AccountIDFromTlb(value)
-	return acntId
-}
-
-func (m *HMessage) Formatter() *HMessageFormatter {
-	return NewHMessageFormatter(m)
-}
-
-//---------------------------------
-
-type HMessageFormatter struct {
-	// Output formatter
-	obj *HMessage
-}
-
-func NewHMessageFormatter(obj *HMessage) *HMessageFormatter {
-	return &HMessageFormatter{
-		obj: obj,
-	}
+	return &wmsg
 }

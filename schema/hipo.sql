@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 create table stakes
 (
     address      text        not null,
-    round_since  integer     not null,
+    round_since  bigint      not null,
     hash         text        not null,
     state        text        not null,
     retried      integer     not null,

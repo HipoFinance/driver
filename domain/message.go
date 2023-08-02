@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"time"
-
 	"github.com/tonkeeper/tongo"
 	"github.com/tonkeeper/tongo/boc"
 	"github.com/tonkeeper/tongo/tlb"
@@ -18,39 +16,58 @@ type MessagePack struct {
 	Issuer    string
 	Reference string
 	Message   Messagable
+
+	stakeReq   *StakeRequest
+	unstakeReq *UnstakeRequest
 }
 
 type Messagable interface {
 	MakeMessage() *wallet.Message
 }
 
-type SaveCoinMessage struct {
-	AccountId    tongo.AccountID
-	Opcode       uint32
-	QuieryId     uint64
-	Amount       tlb.Grams
-	RoundSince   uint32
+type TlbSaveCoinMessage struct {
+	Opcode       tlb.Uint32
+	QuieryId     tlb.Uint64
+	StakeAmount  tlb.Grams
+	RoundSince   tlb.Uint32
 	ReturnExcess tlb.MsgAddress
 }
 
-type ReserveTokenMessage struct {
-	AccountId    tongo.AccountID
-	Opcode       uint32
-	QuieryId     uint64
+type TlbReserveTokenMessage struct {
+	Opcode       tlb.Uint32
+	QuieryId     tlb.Uint64
 	Tokens       tlb.Grams
 	Owner        tlb.MsgAddress
 	ReturnExcess tlb.MsgAddress
 }
 
-func (msg SaveCoinMessage) MakeMessage() *wallet.Message {
+type TlbStakeCoinMessage struct {
+	Opcode       tlb.Uint32
+	QuieryId     tlb.Uint64
+	RoundSince   tlb.Uint32
+	ReturnExcess tlb.MsgAddress
+}
 
-	queryId := uint64(time.Now().Unix())
+type TlbWithdrawMessage struct {
+	Opcode       tlb.Uint32
+	QuieryId     tlb.Uint64
+	ReturnExcess tlb.MsgAddress
+}
+
+type StakeCoinMessage struct {
+	AccountId tongo.AccountID
+	TlbMsg    TlbStakeCoinMessage
+}
+
+type WithdrawMessage struct {
+	AccountId tongo.AccountID
+	TlbMsg    TlbWithdrawMessage
+}
+
+func (msg StakeCoinMessage) MakeMessage() *wallet.Message {
 
 	cell := boc.NewCell()
-	cell.WriteUint(uint64(OpcodeStakeCoin), 32) // opcode
-	cell.WriteUint(queryId, 64)                 // query id
-	cell.WriteUint(uint64(msg.RoundSince), 32)  // round since
-	cell.WriteUint(0, 2)                        // return excess
+	tlb.Marshal(cell, msg.TlbMsg)
 
 	wmsg := wallet.Message{
 		Amount:  100000000,     //  tlb.Grams
@@ -65,14 +82,10 @@ func (msg SaveCoinMessage) MakeMessage() *wallet.Message {
 	return &wmsg
 }
 
-func (msg ReserveTokenMessage) MakeMessage() *wallet.Message {
-
-	queryId := uint64(time.Now().Unix())
+func (msg WithdrawMessage) MakeMessage() *wallet.Message {
 
 	cell := boc.NewCell()
-	cell.WriteUint(uint64(OpcodeWithdraw), 32) // opcode
-	cell.WriteUint(queryId, 64)                // query id
-	cell.WriteUint(0, 2)                       // return excess
+	tlb.Marshal(cell, msg.TlbMsg)
 
 	wmsg := wallet.Message{
 		Amount:  100000000,     //  tlb.Grams

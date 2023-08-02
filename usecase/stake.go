@@ -148,13 +148,14 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 
 func (interactor *StakeInteractor) makeMessage(accid tongo.AccountID, request *domain.StakeRequest) domain.Messagable {
 
-	return domain.SaveCoinMessage{
-		AccountId:  accid,
-		Opcode:     domain.OpcodeStakeCoin,
-		QuieryId:   uint64(time.Now().Unix()),
-		Amount:     request.Info.Value,
-		RoundSince: request.RoundSince,
-		// ReturnExcess: ,
+	return domain.StakeCoinMessage{
+		AccountId: accid,
+		TlbMsg: domain.TlbStakeCoinMessage{
+			Opcode:       tlb.Uint32(domain.OpcodeStakeCoin),
+			QuieryId:     tlb.Uint64(time.Now().Unix()),
+			RoundSince:   tlb.Uint32(request.RoundSince),
+			ReturnExcess: tlb.MsgAddress{SumType: "AddrNone"},
+		},
 	}
 }
 
@@ -188,13 +189,13 @@ func (interactor *StakeInteractor) MakeStakeRequests(trans []tongo.Transaction) 
 		if msg != nil {
 			accid := msg.Dest()
 			cell := msg.GetBody()
-			m := domain.SaveCoinMessage{}
-			tlb.Unmarshal(cell, &m)
+			tlbm := domain.TlbSaveCoinMessage{}
+			tlb.Unmarshal(cell, &tlbm)
 
 			addr := accid.ToHuman(true, config.IsTestNet())
 			requests = append(requests, domain.StakeRequest{
 				Address:    addr,
-				RoundSince: m.RoundSince,
+				RoundSince: uint32(tlbm.RoundSince),
 				Hash:       ht.Formatter().Hash(),
 				Info:       info,
 				CreateTime: time.Now()})

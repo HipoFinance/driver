@@ -146,13 +146,13 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 func (interactor *UnstakeInteractor) makeMessage(accid tongo.AccountID, request *domain.UnstakeRequest) domain.Messagable {
 
-	return domain.ReserveTokenMessage{
+	return domain.WithdrawMessage{
 		AccountId: accid,
-		Opcode:    domain.OpcodeStakeCoin,
-		QuieryId:  uint64(time.Now().Unix()),
-		// Tokens:    request.Tokens,
-		// Owner:
-		// ReturnExcess:
+		TlbMsg: domain.TlbWithdrawMessage{
+			Opcode:       tlb.Uint32(domain.OpcodeWithdraw),
+			QuieryId:     tlb.Uint64(time.Now().Unix()),
+			ReturnExcess: tlb.MsgAddress{SumType: "AddrNone"},
+		},
 	}
 }
 
@@ -177,17 +177,17 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 		if msg != nil {
 			accid := msg.Src()
 			cell := msg.GetBody()
-			m := domain.ReserveTokenMessage{}
-			err := tlb.Unmarshal(cell, &m)
+			tlbm := domain.TlbReserveTokenMessage{}
+			err := tlb.Unmarshal(cell, &tlbm)
 			if err != nil {
 				log.Printf("🔴 unmarshaling message body [trans hash: %v] - %v\n", ht.Formatter().Hash(), err.Error())
 				continue
 			}
 
 			// @TODO: Use a better conversion method
-			buff, err := m.Tokens.MarshalJSON()
+			buff, err := tlbm.Tokens.MarshalJSON()
 			if err != nil {
-				log.Printf("🔴 parsing tokens [value: %v] - %v\n", m.Tokens, err.Error())
+				log.Printf("🔴 parsing tokens [value: %v] - %v\n", tlbm.Tokens, err.Error())
 				continue
 			}
 			buff = buff[1 : len(buff)-1] // remove " marks from begining and end of json value

@@ -223,8 +223,8 @@ func (interactor *StakeInteractor) ListenOnResponse(respCh chan Response) {
 			log.Printf("🔴 staking [wallet: %v] - %v\n", request.Address, resp.err.Error())
 			interactor.stakeRepository.SetState(request.Hash, domain.RequestStateError)
 		} else {
-			interactor.stakeRepository.SetSuccess(request.Hash, time.Now())
-			log.Printf("staking done [wallet: %v]\n", request.Address)
+			interactor.stakeRepository.SetSent(request.Hash, time.Now())
+			log.Printf("staking sent [wallet: %v]\n", request.Address)
 		}
 
 		delete(interactor.requestMap, reference)

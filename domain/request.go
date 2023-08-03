@@ -8,23 +8,26 @@ import (
 )
 
 const (
-	RequestStateNew     = "new"
-	RequestStateOngoing = "ongoing"
-	RequestStateDone    = "done"
-	RequestStateSkipped = "skipped"
-	RequestStateError   = "error"
+	RequestStateNew       = "new"
+	RequestStateOngoing   = "ongoing"
+	RequestStateSent      = "sent"
+	RequestStateVerified  = "verified"
+	RequestStateRetriable = "retriable"
+	RequestStateSkipped   = "skipped"
+	RequestStateError     = "error"
 )
 
 type StakeRequest struct {
-	Address     string           `json:"address"`
-	RoundSince  uint32           `json:"round_since"`
-	Hash        string           `json:"hash"`
-	State       string           `json:"state"`
-	Retried     int              `json:"retried"`
-	Info        StakeRelatedInfo `json:"info"`
-	CreateTime  time.Time        `json:"create_time"`
-	RetryTime   *time.Time       `json:"retry_time"`
-	SuccessTime *time.Time       `json:"success_time"`
+	Address      string           `json:"address"`
+	RoundSince   uint32           `json:"round_since"`
+	Hash         string           `json:"hash"`
+	State        string           `json:"state"`
+	Retried      int              `json:"retried"`
+	Info         StakeRelatedInfo `json:"info"`
+	CreateTime   time.Time        `json:"create_time"`
+	RetryTime    *time.Time       `json:"retry_time"`
+	SentTime     *time.Time       `json:"sent_time"`
+	VerifiedTime *time.Time       `json:"verified_time"`
 }
 
 type StakeRelatedInfo struct {
@@ -34,15 +37,16 @@ type StakeRelatedInfo struct {
 }
 
 type UnstakeRequest struct {
-	Address     string             `json:"address"`
-	Tokens      big.Int            `json:"tokens"`
-	Hash        string             `json:"hash"`
-	State       string             `json:"state"`
-	Retried     int                `json:"retried"`
-	Info        UnstakeRelatedInfo `json:"info"`
-	CreateTime  time.Time          `json:"create_time"`
-	RetryTime   *time.Time         `json:"retry_time"`
-	SuccessTime *time.Time         `json:"success_time"`
+	Address      string             `json:"address"`
+	Tokens       big.Int            `json:"tokens"`
+	Hash         string             `json:"hash"`
+	State        string             `json:"state"`
+	Retried      int                `json:"retried"`
+	Info         UnstakeRelatedInfo `json:"info"`
+	CreateTime   time.Time          `json:"create_time"`
+	RetryTime    *time.Time         `json:"retry_time"`
+	SentTime     *time.Time         `json:"sent_time"`
+	VerifiedTime *time.Time         `json:"verified_time"`
 }
 
 type UnstakeRelatedInfo struct {

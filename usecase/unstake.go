@@ -224,7 +224,7 @@ func (interactor *UnstakeInteractor) ListenOnResponse(respCh chan Response) {
 			log.Printf("🔴 unstaking [wallet: %v] - %v\n", request.Address, resp.err.Error())
 			interactor.unstakeRepository.SetState(request.Hash, domain.RequestStateError)
 		} else {
-			interactor.unstakeRepository.SetSuccess(request.Hash, time.Now())
+			interactor.unstakeRepository.SetSent(request.Hash, time.Now())
 			log.Printf("unstaking done [wallet: %v]\n", request.Address)
 		}
 

@@ -59,6 +59,7 @@ func defaultDependencyInject() {
 	stakeInteractor = usecase.NewStakeInteractor(tongoClient, memoInteractor, contractInteractor, stakeRepository, &driverWallet)
 	unstakeInteractor = usecase.NewUnstakeInteractor(tongoClient, memoInteractor, contractInteractor, unstakeRepository, &driverWallet)
 	extractInteractor = usecase.NewExtractInteractor(tongoClient, memoInteractor, contractInteractor, stakeInteractor, unstakeInteractor, &driverWallet)
+	verifyInteractor = usecase.NewVerifyInteractor(tongoClient, contractInteractor, stakeRepository, unstakeRepository)
 	statisticInteractor = usecase.NewStatisticInteractor(tongoClient)
 
 	messengerCh := make(chan domain.MessagePack, 10)
@@ -75,6 +76,7 @@ var contractInteractor *usecase.ContractInteractor
 var stakeInteractor *usecase.StakeInteractor
 var unstakeInteractor *usecase.UnstakeInteractor
 var extractInteractor *usecase.ExtractInteractor
+var verifyInteractor *usecase.VerifyInteractor
 var statisticInteractor *usecase.StatisticInteractor
 var messengerInteractor *usecase.MessengerInteractor
 var driverWallet wallet.Wallet

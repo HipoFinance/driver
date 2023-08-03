@@ -29,6 +29,7 @@ var (
 	ErrorInvalidExtractInterval = fmt.Errorf("invalid time interval for extract process")
 	ErrorInvalidStakeInterval   = fmt.Errorf("invalid time interval for stake process")
 	ErrorInvalidUnstakeInterval = fmt.Errorf("invalid time interval for unstake process")
+	ErrorInvalidVerifyInterval  = fmt.Errorf("invalid time interval for verify process")
 
 	ErrorInvalidTreausryAddress = fmt.Errorf("invalid treasury address")
 )
@@ -51,6 +52,7 @@ var (
 	extractInterval time.Duration
 	stakeInterval   time.Duration
 	unstakeInterval time.Duration
+	verifyInterval  time.Duration
 
 	maxRetry int
 )
@@ -139,6 +141,14 @@ func initializeVariables() error {
 		return ErrorInvalidUnstakeInterval
 	}
 
+	//---------------------------------------------------------------
+	// verify interval
+	strValue = viper.GetString("verify_interval")
+	verifyInterval, err = time.ParseDuration(strValue)
+	if err != nil {
+		return ErrorInvalidVerifyInterval
+	}
+
 	maxRetry = viper.GetInt("max_retry")
 
 	return nil
@@ -189,6 +199,10 @@ func GetStakeInterval() time.Duration {
 
 func GetUnstakeInterval() time.Duration {
 	return unstakeInterval
+}
+
+func GetVerifyInterval() time.Duration {
+	return verifyInterval
 }
 
 func GetMaxRetry() int {

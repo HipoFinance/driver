@@ -11,10 +11,10 @@ import (
 const (
 	sqlStakeInsertIfNotExists = `
 	insert into stakes as c (
-			address, round_since, hash, state, retried, info, create_time, retry_time, success_time
+			address, round_since, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
 		)
 		values (
-			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null
+			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null, null
 		)
 	on conflict (hash) do
 		update set
@@ -23,16 +23,23 @@ const (
 
 	sqlStakeFind = `
 	select
-		address, round_since, hash, state, retried, info, create_time, retry_time, success_time
+		address, round_since, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
 	from stakes
 	where hash = $1
 `
 
 	sqlStakeFindAllTriable = `
 	select
-		address, round_since, hash, state, retried, info, create_time, retry_time, success_time
+		address, round_since, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
 	from stakes
-	where state in ('new', 'error') and retried < $1
+	where state in ('new', 'error', 'retriable') and retried < $1
+`
+
+	sqlStakeFindAllVerifiable = `
+	select
+		address, round_since, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
+	from stakes
+	where state in ('sent')
 `
 
 	sqlStakeSetState = `
@@ -47,9 +54,15 @@ const (
 	where hash = $1
 `
 
-	sqlStakeSetSucess = `
+	sqlStakeSetSent = `
 	update stakes
-		set success_time = $2, state = 'done'
+		set sent_time = $2, state = 'sent'
+	where hash = $1
+`
+
+	sqlStakeSetVerified = `
+	update stakes
+		set verified_time = $2, state = 'verified'
 	where hash = $1
 `
 )
@@ -66,7 +79,7 @@ func readStake(scan func(...interface{}) error) (interface{}, error) {
 	r := domain.StakeRequest{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
+		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
 	)
 	if err != nil {
 		return &r, err
@@ -79,7 +92,7 @@ func readAllStakes(memo interface{}, scan func(...interface{}) error) (interface
 	r := domain.StakeRequest{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
+		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
 	)
 	if err == nil {
 		err = json.Unmarshal(infoJson, &r.Info)
@@ -137,6 +150,19 @@ func (repo *StakeRepository) FindAllTriable(maxRetry int) ([]domain.StakeRequest
 	return result, err
 }
 
+func (repo *StakeRepository) FindAllVerifiable() ([]domain.StakeRequest, error) {
+	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
+		{
+			Query:   sqlStakeFindAllVerifiable,
+			Args:    []interface{}{},
+			Init:    make([]domain.StakeRequest, 0),
+			ReadAll: readAllStakes,
+		},
+	})
+	result, _ := results[0].([]domain.StakeRequest)
+	return result, err
+}
+
 func (repo *StakeRepository) SetState(hash string, state string) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
@@ -159,10 +185,21 @@ func (repo *StakeRepository) SetRetrying(hash string, timestamp time.Time) error
 	return err
 }
 
-func (repo *StakeRepository) SetSuccess(hash string, timestamp time.Time) error {
+func (repo *StakeRepository) SetSent(hash string, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
-			Query:  sqlStakeSetSucess,
+			Query:  sqlStakeSetSent,
+			Args:   []interface{}{hash, timestamp},
+			Affect: 1,
+		},
+	})
+	return err
+}
+
+func (repo *StakeRepository) SetVerified(hash string, timestamp time.Time) error {
+	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
+		{
+			Query:  sqlStakeSetVerified,
 			Args:   []interface{}{hash, timestamp},
 			Affect: 1,
 		},

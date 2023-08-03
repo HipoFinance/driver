@@ -34,19 +34,22 @@ var startCmd = &cobra.Command{
 			"Extractoin Interval: %v\n"+
 			"Stake Interval:      %v\n"+
 			"Unstake Interval:    %v\n"+
+			"Verify Interval:     %v\n"+
 			"----------------------------------\n",
 			config.GetNetwork(),
 			config.GetTreasuryAddress(),
 			driverWallet.GetAddress().ToHuman(true, config.IsTestNet()),
 			config.GetExtractInterval(),
 			config.GetStakeInterval(),
-			config.GetUnstakeInterval())
+			config.GetUnstakeInterval(),
+			config.GetVerifyInterval())
 
 		config.GetTreasuryAddress()
 
 		extractTiker := schedule(extract, config.GetExtractInterval(), quit)
 		stakeTicker := schedule(stake, config.GetStakeInterval(), quit)
 		unstakeTicker := schedule(unstake, config.GetUnstakeInterval(), quit)
+		verifyTicker := schedule(verify, config.GetVerifyInterval(), quit)
 		// statisticTicker := schedule(statistic, 5, quit)
 
 		go messengerInteractor.ListenOnChannel()
@@ -60,6 +63,7 @@ var startCmd = &cobra.Command{
 		extractTiker.Stop()
 		stakeTicker.Stop()
 		unstakeTicker.Stop()
+		verifyTicker.Stop()
 		// statisticTicker.Stop()
 	},
 }
@@ -121,6 +125,24 @@ func unstake() {
 	unstakeInteractor.SendWithdrawMessageToJettonWallets(requests)
 }
 
+func verify() {
+	stakeRequests, unstakeRequests, err := verifyInteractor.LoadVerifiable()
+	if err != nil {
+		fmt.Printf("❌ Failed to find verifiable reqcords - %v\n", err.Error())
+		return
+	}
+
+	err = verifyInteractor.VerifyStakeRequests(stakeRequests)
+	if err != nil {
+		fmt.Printf("❌ Failed to verify stakes - %v\n", err.Error())
+	}
+
+	err = verifyInteractor.VerifyUnstakeRequests(unstakeRequests)
+	if err != nil {
+		fmt.Printf("❌ Failed to verify unstakes - %v\n", err.Error())
+	}
+}
+
 func statistic() {
 	accountId := config.GetTreasuryAccountId()
 
@@ -133,17 +155,14 @@ func printOutWallets(extractResult *domain.ExtractionResult) {
 		fmt.Printf("------------- FOUND WALLET LIST -----------------\n")
 	}
 
-	i := 1
-	for _, wallet := range extractResult.StakeRequests {
+	for i, wallet := range extractResult.StakeRequests {
 		info := wallet.Info
-		fmt.Printf("stake #%03d - [ wallet: %v , hash: %v ]\n", i, wallet.Address, info.Hash)
-		i++
+		fmt.Printf("stake #%03d - [ wallet: %v , hash: %v ]\n", i+1, wallet.Address, info.Hash)
 	}
 
-	for _, wallet := range extractResult.UnstakeRequests {
+	for i, wallet := range extractResult.UnstakeRequests {
 		info := wallet.Info
-		fmt.Printf("unstake #%03d - [ wallet: %v , hash: %v ]\n", i, wallet.Address, info.Hash)
-		i++
+		fmt.Printf("unstake #%03d - [ wallet: %v , hash: %v ]\n", i+1, wallet.Address, info.Hash)
 	}
 }
 

@@ -12,10 +12,10 @@ import (
 const (
 	sqlUntakeInsertIfNotExists = `
 	insert into unstakes as c (
-			address, tokens, hash, state, retried, info, create_time, retry_time, success_time
+			address, tokens, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
 		)
 		values (
-			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null
+			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null, null
 		)
 	on conflict (hash) do
 		update set
@@ -24,16 +24,23 @@ const (
 
 	sqlUnstakeFind = `
 	select
-		address, tokens, hash, state, retried, info, create_time, retry_time, success_time
+		address, tokens, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
 	from unstakes
 	where hash = $1
 `
 
 	sqlUnstakeFindAllTriable = `
 	select
-		address, tokens, hash, state, retried, info, create_time, retry_time, success_time
+		address, tokens, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
 	from unstakes
-	where state in ('new', 'error') and retried < $1
+	where state in ('new', 'error', 'retriable') and retried < $1
+`
+
+	sqlUnstakeFindAllVerifiable = `
+	select
+		address, tokens, hash, state, retried, info, create_time, retry_time, sent_time, verified_time
+	from unstakes
+	where state in ('sent')
 `
 
 	sqlUnstakeSetState = `
@@ -48,9 +55,15 @@ const (
 	where hash = $1
 `
 
-	sqlUntakeSetSucess = `
+	sqlUntakeSetSent = `
 	update unstakes
-		set success_time = $2, state = 'done'
+		set sent_time = $2, state = 'sent'
+	where hash = $1
+`
+
+	sqlUntakeSetVerified = `
+	update unstakes
+		set sent_time = $2, state = 'verified'
 	where hash = $1
 `
 )
@@ -68,7 +81,7 @@ func readUnstake(scan func(...interface{}) error) (interface{}, error) {
 	var tokenStr string
 	var infoJson []byte
 	err := scan(
-		&r.Address, &tokenStr, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
+		&r.Address, &tokenStr, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
 	)
 	if err != nil {
 		return &r, err
@@ -86,7 +99,7 @@ func readAllUnstakes(memo interface{}, scan func(...interface{}) error) (interfa
 	var tokenStr string
 	var infoJson []byte
 	err := scan(
-		&r.Address, &tokenStr, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SuccessTime,
+		&r.Address, &tokenStr, &r.Hash, &r.State, &r.Retried, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
 	)
 
 	if err == nil {
@@ -149,6 +162,19 @@ func (repo *UnstakeRepository) FindAllTriable(maxRetry int) ([]domain.UnstakeReq
 	return result, err
 }
 
+func (repo *UnstakeRepository) FindAllVerifiable() ([]domain.UnstakeRequest, error) {
+	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
+		{
+			Query:   sqlUnstakeFindAllVerifiable,
+			Args:    []interface{}{},
+			Init:    make([]domain.UnstakeRequest, 0),
+			ReadAll: readAllUnstakes,
+		},
+	})
+	result, _ := results[0].([]domain.UnstakeRequest)
+	return result, err
+}
+
 func (repo *UnstakeRepository) SetState(hash string, state string) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
@@ -171,10 +197,21 @@ func (repo *UnstakeRepository) SetRetrying(hash string, timestamp time.Time) err
 	return err
 }
 
-func (repo *UnstakeRepository) SetSuccess(hash string, timestamp time.Time) error {
+func (repo *UnstakeRepository) SetSent(hash string, timestamp time.Time) error {
 	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
-			Query:  sqlUntakeSetSucess,
+			Query:  sqlUntakeSetSent,
+			Args:   []interface{}{hash, timestamp},
+			Affect: 1,
+		},
+	})
+	return err
+}
+
+func (repo *UnstakeRepository) SetVerified(hash string, timestamp time.Time) error {
+	_, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
+		{
+			Query:  sqlUntakeSetVerified,
 			Args:   []interface{}{hash, timestamp},
 			Affect: 1,
 		},

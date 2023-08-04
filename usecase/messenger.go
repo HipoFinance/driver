@@ -11,17 +11,15 @@ import (
 	tgwallet "github.com/tonkeeper/tongo/wallet"
 )
 
-const (
-	IssuerStake   = "stake"
-	IssuerUnstake = "unstake"
-)
-
 var ErrorTimeOut = fmt.Errorf("timeout for new seqno")
 
 type Response struct {
 	reference string
 	ok        bool
 	err       error
+
+	StakeRequest   *domain.StakeRequest
+	UnstakeRequest *domain.UnstakeRequest
 }
 
 type MessengerInteractor struct {
@@ -61,7 +59,7 @@ func (interactor *MessengerInteractor) ListenOnChannel() error {
 
 		err = interactor.driverWallet.Send(context.Background(), msg.Message.MakeMessage())
 		if err != nil {
-			log.Printf("🔴 sending message [issuer: %v, reference: %v] - %v\n", msg.Issuer, msg.Reference, err.Error())
+			log.Printf("🔴 sending message [reference: %v] - %v\n", msg.Reference, err.Error())
 		} else {
 			seqno, err = interactor.waitForNextSeqno(seqno)
 		}
@@ -70,15 +68,20 @@ func (interactor *MessengerInteractor) ListenOnChannel() error {
 			reference: msg.Reference,
 			ok:        err == nil,
 			err:       err,
+
+			StakeRequest:   msg.StakeRequest,
+			UnstakeRequest: msg.UnstakeRequest,
 		}
 
-		switch msg.Issuer {
-		case IssuerStake:
+		if msg.StakeRequest != nil {
+			// The message is a stake request, so send the response to stake response channel
 			interactor.stakeCh <- response
-		case IssuerUnstake:
+		} else if msg.UnstakeRequest != nil {
+			// The message is an unstake request, so send the response to unstake response channel
 			interactor.unstakeCh <- response
-		default:
-			log.Printf("🔴 sending response - unknown issuer! [isuuer: %v]\n", msg.Issuer)
+		} else {
+			// Oops! neither of request objects is provided
+			log.Printf("🔴 sending response - unknown request source! [reference: %v]\n", msg.Reference)
 		}
 	}
 

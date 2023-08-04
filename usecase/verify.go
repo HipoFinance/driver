@@ -32,7 +32,7 @@ func NewVerifyInteractor(client *liteapi.Client,
 	return interactor
 }
 
-func (interactor *VerifyInteractor) LoadVerifiable() ([]domain.StakeRequest, []domain.UnstakeRequest, error) {
+func (interactor *VerifyInteractor) LoadVerifiable() ([]*domain.StakeRequest, []*domain.UnstakeRequest, error) {
 
 	stakeRequests, err := interactor.stakeRepository.FindAllVerifiable()
 	if err != nil {
@@ -49,7 +49,7 @@ func (interactor *VerifyInteractor) LoadVerifiable() ([]domain.StakeRequest, []d
 	return stakeRequests, unstakeRequests, nil
 }
 
-func (interactor *VerifyInteractor) VerifyStakeRequests(requests []domain.StakeRequest) error {
+func (interactor *VerifyInteractor) VerifyStakeRequests(requests []*domain.StakeRequest) error {
 
 	for _, request := range requests {
 		log.Printf("verifying stake [wallet = %v]\n", request.Address)
@@ -80,7 +80,7 @@ func (interactor *VerifyInteractor) VerifyStakeRequests(requests []domain.StakeR
 	return nil
 }
 
-func (interactor *VerifyInteractor) VerifyUnstakeRequests(requests []domain.UnstakeRequest) error {
+func (interactor *VerifyInteractor) VerifyUnstakeRequests(requests []*domain.UnstakeRequest) error {
 
 	for _, request := range requests {
 		log.Printf("verifying unstake [wallet = %v]\n", request.Address)

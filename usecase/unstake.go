@@ -25,8 +25,6 @@ type UnstakeInteractor struct {
 
 	messengerCh chan domain.MessagePack
 	resposeCh   chan Response
-
-	requestMap map[string]domain.UnstakeRequest
 }
 
 func NewUnstakeInteractor(client *liteapi.Client,
@@ -42,7 +40,6 @@ func NewUnstakeInteractor(client *liteapi.Client,
 		driverWallet:       driverWallet,
 	}
 
-	interactor.requestMap = make(map[string]domain.UnstakeRequest)
 	return interactor
 }
 
@@ -66,7 +63,7 @@ func (interactor *UnstakeInteractor) Store(requests []domain.UnstakeRequest) err
 	return nil
 }
 
-func (interactor *UnstakeInteractor) LoadTriable() ([]domain.UnstakeRequest, error) {
+func (interactor *UnstakeInteractor) LoadTriable() ([]*domain.UnstakeRequest, error) {
 
 	requests, err := interactor.unstakeRepository.FindAllTriable(config.GetMaxRetry())
 	if err != nil {
@@ -77,7 +74,7 @@ func (interactor *UnstakeInteractor) LoadTriable() ([]domain.UnstakeRequest, err
 	return requests, nil
 }
 
-func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests []domain.UnstakeRequest) error {
+func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests []*domain.UnstakeRequest) error {
 
 	// Sorts the requests based on Tokens value accending, so that most requests will be done with a specified budget.
 	sort.Slice(requests, func(i, j int) bool {
@@ -132,12 +129,13 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 		reference := request.Hash
 		mp := domain.MessagePack{
-			Issuer:    IssuerUnstake,
 			Reference: reference,
-			Message:   interactor.makeMessage(accid, &request),
+			Message:   interactor.makeMessage(accid, request),
+
+			StakeRequest:   nil,
+			UnstakeRequest: request,
 		}
 
-		interactor.requestMap[reference] = request
 		interactor.messengerCh <- mp
 	}
 
@@ -211,14 +209,11 @@ func (interactor *UnstakeInteractor) ListenOnResponse(respCh chan Response) {
 	for {
 		resp := <-respCh
 
-		reference := resp.reference
-		request, exist := interactor.requestMap[reference]
-		// log.Printf("=--> [resp: %v]\n", resp)
-		if !exist {
-			log.Printf("🔴 staking [hash: %v] - request does not exist.\n", resp.reference)
+		request := resp.UnstakeRequest
+		if request == nil {
+			log.Printf("🔴 unstaking [hash: %v] - request is nil!\n", resp.reference)
 			continue
 		}
-		// log.Printf("=--> [req: %v]\n", request)
 
 		if !resp.ok {
 			log.Printf("🔴 unstaking [wallet: %v] - %v\n", request.Address, resp.err.Error())
@@ -227,7 +222,5 @@ func (interactor *UnstakeInteractor) ListenOnResponse(respCh chan Response) {
 			interactor.unstakeRepository.SetSent(request.Hash, time.Now())
 			log.Printf("unstaking done [wallet: %v]\n", request.Address)
 		}
-
-		delete(interactor.requestMap, reference)
 	}
 }

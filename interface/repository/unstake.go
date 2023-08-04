@@ -110,8 +110,8 @@ func readAllUnstakes(memo interface{}, scan func(...interface{}) error) (interfa
 		err = json.Unmarshal(infoJson, &r.Info)
 	}
 
-	list := memo.([]domain.UnstakeRequest)
-	list = append(list, r)
+	list := memo.([]*domain.UnstakeRequest)
+	list = append(list, &r)
 	return list, err
 }
 
@@ -149,29 +149,29 @@ func (repo *UnstakeRepository) Find(hash string) (*domain.UnstakeRequest, error)
 	return result, err
 }
 
-func (repo *UnstakeRepository) FindAllTriable(maxRetry int) ([]domain.UnstakeRequest, error) {
+func (repo *UnstakeRepository) FindAllTriable(maxRetry int) ([]*domain.UnstakeRequest, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlUnstakeFindAllTriable,
 			Args:    []interface{}{maxRetry},
-			Init:    make([]domain.UnstakeRequest, 0),
+			Init:    make([]*domain.UnstakeRequest, 0),
 			ReadAll: readAllUnstakes,
 		},
 	})
-	result, _ := results[0].([]domain.UnstakeRequest)
+	result, _ := results[0].([]*domain.UnstakeRequest)
 	return result, err
 }
 
-func (repo *UnstakeRepository) FindAllVerifiable() ([]domain.UnstakeRequest, error) {
+func (repo *UnstakeRepository) FindAllVerifiable() ([]*domain.UnstakeRequest, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlUnstakeFindAllVerifiable,
 			Args:    []interface{}{},
-			Init:    make([]domain.UnstakeRequest, 0),
+			Init:    make([]*domain.UnstakeRequest, 0),
 			ReadAll: readAllUnstakes,
 		},
 	})
-	result, _ := results[0].([]domain.UnstakeRequest)
+	result, _ := results[0].([]*domain.UnstakeRequest)
 	return result, err
 }
 

@@ -23,8 +23,6 @@ type StakeInteractor struct {
 
 	messengerCh chan domain.MessagePack
 	resposeCh   chan Response
-
-	requestMap map[string]domain.StakeRequest
 }
 
 func NewStakeInteractor(client *liteapi.Client,
@@ -40,7 +38,6 @@ func NewStakeInteractor(client *liteapi.Client,
 		driverWallet:       driverWallet,
 	}
 
-	interactor.requestMap = make(map[string]domain.StakeRequest)
 	return interactor
 }
 
@@ -64,7 +61,7 @@ func (interactor *StakeInteractor) Store(requests []domain.StakeRequest) error {
 	return nil
 }
 
-func (interactor *StakeInteractor) LoadTriable() ([]domain.StakeRequest, error) {
+func (interactor *StakeInteractor) LoadTriable() ([]*domain.StakeRequest, error) {
 
 	requests, err := interactor.stakeRepository.FindAllTriable(config.GetMaxRetry())
 	if err != nil {
@@ -75,7 +72,7 @@ func (interactor *StakeInteractor) LoadTriable() ([]domain.StakeRequest, error) 
 	return requests, nil
 }
 
-func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []domain.StakeRequest) error {
+func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []*domain.StakeRequest) error {
 	// The round-since value must be considered as a condition whether to call stakeCoin or not.
 	//
 	//	start from sooner roundSince
@@ -85,13 +82,13 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 	//  if exists, skip it, otherwise send stake-coin message
 
 	// Split the wallets based on their round-since
-	splitted := make(map[uint32][]domain.StakeRequest, 0)
+	splitted := make(map[uint32][]*domain.StakeRequest, 0)
 	for _, request := range requests {
 		roundSince := request.RoundSince
 		if _, exist := splitted[roundSince]; exist {
 			splitted[roundSince] = append(splitted[roundSince], request)
 		} else {
-			subList := make([]domain.StakeRequest, 0, 1)
+			subList := make([]*domain.StakeRequest, 0, 1)
 			subList = append(subList, request)
 			splitted[roundSince] = subList
 		}
@@ -133,12 +130,13 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []do
 
 			reference := request.Hash
 			mp := domain.MessagePack{
-				Issuer:    IssuerStake,
 				Reference: reference,
-				Message:   interactor.makeMessage(accid, &request),
+				Message:   interactor.makeMessage(accid, request),
+
+				StakeRequest:   request,
+				UnstakeRequest: nil,
 			}
 
-			interactor.requestMap[reference] = request
 			interactor.messengerCh <- mp
 		}
 	}
@@ -210,14 +208,11 @@ func (interactor *StakeInteractor) ListenOnResponse(respCh chan Response) {
 	for {
 		resp := <-respCh
 
-		reference := resp.reference
-		request, exist := interactor.requestMap[reference]
-		// log.Printf("=--> [resp: %v]\n", resp)
-		if !exist {
-			log.Printf("🔴 staking [hash: %v] - request does not exist.\n", resp.reference)
+		request := resp.StakeRequest
+		if request == nil {
+			log.Printf("🔴 staking [hash: %v] - request is nil!\n", resp.reference)
 			continue
 		}
-		// log.Printf("=--> [req: %v]\n", request)
 
 		if !resp.ok {
 			log.Printf("🔴 staking [wallet: %v] - %v\n", request.Address, resp.err.Error())
@@ -226,8 +221,6 @@ func (interactor *StakeInteractor) ListenOnResponse(respCh chan Response) {
 			interactor.stakeRepository.SetSent(request.Hash, time.Now())
 			log.Printf("staking sent [wallet: %v]\n", request.Address)
 		}
-
-		delete(interactor.requestMap, reference)
 	}
 }
 

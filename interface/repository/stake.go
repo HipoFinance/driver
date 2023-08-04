@@ -98,8 +98,8 @@ func readAllStakes(memo interface{}, scan func(...interface{}) error) (interface
 		err = json.Unmarshal(infoJson, &r.Info)
 	}
 
-	list := memo.([]domain.StakeRequest)
-	list = append(list, r)
+	list := memo.([]*domain.StakeRequest)
+	list = append(list, &r)
 	return list, err
 }
 
@@ -137,29 +137,29 @@ func (repo *StakeRepository) Find(hash string) (*domain.StakeRequest, error) {
 	return result, err
 }
 
-func (repo *StakeRepository) FindAllTriable(maxRetry int) ([]domain.StakeRequest, error) {
+func (repo *StakeRepository) FindAllTriable(maxRetry int) ([]*domain.StakeRequest, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlStakeFindAllTriable,
 			Args:    []interface{}{maxRetry},
-			Init:    make([]domain.StakeRequest, 0),
+			Init:    make([]*domain.StakeRequest, 0),
 			ReadAll: readAllStakes,
 		},
 	})
-	result, _ := results[0].([]domain.StakeRequest)
+	result, _ := results[0].([]*domain.StakeRequest)
 	return result, err
 }
 
-func (repo *StakeRepository) FindAllVerifiable() ([]domain.StakeRequest, error) {
+func (repo *StakeRepository) FindAllVerifiable() ([]*domain.StakeRequest, error) {
 	results, err := repo.batchHandler.Batch(&BatchOptionNormal, []sqlbatch.Command{
 		{
 			Query:   sqlStakeFindAllVerifiable,
 			Args:    []interface{}{},
-			Init:    make([]domain.StakeRequest, 0),
+			Init:    make([]*domain.StakeRequest, 0),
 			ReadAll: readAllStakes,
 		},
 	})
-	result, _ := results[0].([]domain.StakeRequest)
+	result, _ := results[0].([]*domain.StakeRequest)
 	return result, err
 }
 

@@ -13,12 +13,11 @@ const (
 )
 
 type MessagePack struct {
-	Issuer    string
 	Reference string
 	Message   Messagable
 
-	stakeReq   *StakeRequest
-	unstakeReq *UnstakeRequest
+	StakeRequest   *StakeRequest
+	UnstakeRequest *UnstakeRequest
 }
 
 type Messagable interface {

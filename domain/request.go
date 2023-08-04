@@ -22,7 +22,7 @@ type StakeRequest struct {
 	RoundSince   uint32           `json:"round_since"`
 	Hash         string           `json:"hash"`
 	State        string           `json:"state"`
-	Retried      int              `json:"retried"`
+	RetryCount   int              `json:"retry_count"`
 	Info         StakeRelatedInfo `json:"info"`
 	CreateTime   time.Time        `json:"create_time"`
 	RetryTime    *time.Time       `json:"retry_time"`
@@ -41,7 +41,7 @@ type UnstakeRequest struct {
 	Tokens       big.Int            `json:"tokens"`
 	Hash         string             `json:"hash"`
 	State        string             `json:"state"`
-	Retried      int                `json:"retried"`
+	RetryCount   int                `json:"retry_count"`
 	Info         UnstakeRelatedInfo `json:"info"`
 	CreateTime   time.Time          `json:"create_time"`
 	RetryTime    *time.Time         `json:"retry_time"`

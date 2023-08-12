@@ -38,7 +38,7 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 		return nil, err
 	}
 
-	if len(stack) != 16 ||
+	if len(stack) != 17 ||
 		(stack[0].SumType != "VmStkTinyInt" && stack[0].SumType != "VmStkInt") ||
 		(stack[1].SumType != "VmStkTinyInt" && stack[1].SumType != "VmStkInt") ||
 		(stack[2].SumType != "VmStkTinyInt" && stack[2].SumType != "VmStkInt") ||
@@ -46,15 +46,16 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 		(stack[4].SumType != "VmStkTinyInt" && stack[4].SumType != "VmStkInt") ||
 		(stack[5].SumType != "VmStkCell" && stack[5].SumType != "VmStkNull") ||
 		(stack[6].SumType != "VmStkTinyInt") ||
-		(stack[7].SumType != "VmStkCell") ||
+		(stack[7].SumType != "VmStkTinyInt") ||
 		(stack[8].SumType != "VmStkCell") ||
-		(stack[9].SumType != "VmStkSlice") ||
+		(stack[9].SumType != "VmStkCell") ||
 		(stack[10].SumType != "VmStkSlice") ||
 		(stack[11].SumType != "VmStkSlice") ||
-		(stack[12].SumType != "VmStkSlice" && stack[12].SumType != "VmStkNull") ||
-		stack[13].SumType != "VmStkTinyInt" ||
-		(stack[14].SumType != "VmStkCell" && stack[14].SumType != "VmStkNull") ||
-		(stack[15].SumType != "VmStkCell") {
+		(stack[12].SumType != "VmStkSlice") ||
+		(stack[13].SumType != "VmStkSlice" && stack[13].SumType != "VmStkNull") ||
+		stack[14].SumType != "VmStkTinyInt" ||
+		(stack[15].SumType != "VmStkCell" && stack[15].SumType != "VmStkNull") ||
+		(stack[16].SumType != "VmStkCell") {
 		return nil, ErrorUnexpectedTreasuryState
 	}
 
@@ -77,8 +78,9 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 		}
 	}
 
-	result.Stopped = stack[6].VmStkTinyInt != 0
-	result.RewardShare = stack[13].VmStkTinyInt
+	result.BalancedRounds = stack[6].VmStkTinyInt != 0
+	result.Stopped = stack[7].VmStkTinyInt != 0
+	result.RewardShare = stack[14].VmStkTinyInt
 
 	return result, nil
 }

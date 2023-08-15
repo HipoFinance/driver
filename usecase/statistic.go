@@ -4,67 +4,163 @@ import (
 	"context"
 	"driver/domain"
 	"fmt"
+	"log"
 
 	"github.com/tonkeeper/tongo"
-	"github.com/tonkeeper/tongo/liteapi"
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
+	"github.com/xssnick/tonutils-go/ton"
 )
 
 type StatisticInteractor struct {
-	client *liteapi.Client
+	cntx   context.Context
+	client *ton.APIClient
 }
 
-func NewStatisticInteractor(client *liteapi.Client) *StatisticInteractor {
+func NewStatisticInteractor(cntx context.Context, client *ton.APIClient) *StatisticInteractor {
 	interactor := &StatisticInteractor{
+		cntx:   cntx,
 		client: client,
 	}
 	return interactor
 }
 
+// func to get storage map key
+func getShardID(shard *ton.BlockIDExt) string {
+	return fmt.Sprintf("%d|%d", shard.Workchain, shard.Shard)
+}
+
+func getNotSeenShards(ctx context.Context, api *ton.APIClient, shard *ton.BlockIDExt, shardLastSeqno map[string]uint32) (ret []*ton.BlockIDExt, err error) {
+	if no, ok := shardLastSeqno[getShardID(shard)]; ok && no == shard.SeqNo {
+		return nil, nil
+	}
+
+	b, err := api.GetBlockData(ctx, shard)
+	if err != nil {
+		return nil, fmt.Errorf("get block data: %w", err)
+	}
+
+	parents, err := b.BlockInfo.GetParentBlocks()
+	if err != nil {
+		return nil, fmt.Errorf("get parent blocks (%d:%x:%d): %w", shard.Workchain, uint64(shard.Shard), shard.Shard, err)
+	}
+
+	for _, parent := range parents {
+		ext, err := getNotSeenShards(ctx, api, parent, shardLastSeqno)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, ext...)
+	}
+
+	ret = append(ret, shard)
+	return ret, nil
+}
+
 func (interactor *StatisticInteractor) Statistic(treasuryAccount tongo.AccountID) (*domain.StatisticResult, error) {
 
-	result := domain.StatisticResult{}
+	result := domain.StatisticResult{
+		X: 3,
+	}
 
 	// var wc int32 = 0
 	// var shard uint64 = 0
 	// var seqno uint32 = 10000
 
-	trans, err := interactor.client.GetLastTransactions(context.Background(), treasuryAccount, 100)
+	master, err := interactor.client.GetMasterchainInfo(context.Background())
 	if err != nil {
-		return nil, err
-	}
-	tr := trans[len(trans)-1]
-	blockId := tr.BlockID
-
-	trids, ok, err := interactor.client.ListBlockTransactions(context.Background(), blockId, 7, 100, nil)
-	if err != nil {
+		log.Printf("get masterchain info err: %v\n", err.Error())
 		return nil, err
 	}
 
-	//##########################################################
-	// tongo:
-	// func ToBlockId(s tlb.ShardDesc, workchain int32) BlockIDExt
-	// func ParseBlockID(s string) (BlockID, error)
-	// func MustParseBlockID(s string) BlockID
-	// func (s ShardID) MatchBlockID(block BlockID) bool
+	// bound all requests to single lite server for consistency,
+	// if it will go down, another lite server will be used
+	ctx := interactor.client.Client().StickyContext(context.Background())
 
-	// liteapi:
-	// func (c *Client) targetBlock(ctx context.Context) (tongo.BlockIDExt, error)
-	// func (c *Client) LookupBlock(ctx context.Context, blockID tongo.BlockID, mode uint32, lt *uint64, utime *uint32) (tongo.BlockIDExt, tlb.BlockInfo, error)
-	// func (c *Client) GetShardInfo( ctx context.Context, blockID tongo.BlockIDExt, workchain uint32, shard uint64, exact bool) (tongo.BlockIDExt, error)
-	// func (c *Client) GetAllShardsInfo(ctx context.Context, blockID tongo.BlockIDExt) ([]tongo.BlockIDExt, error)
-	//##########################################################
+	// storage for last seen shard seqno
+	shardLastSeqno := map[string]uint32{}
 
-	if ok {
-		for i, tr := range trids {
-			fmt.Printf("#%v: %v\n", i, tr.Hash)
+	// getting information about other work-chains and shards of first master block
+	// to init storage of last seen shard seq numbers
+	firstShards, err := interactor.client.GetBlockShardsInfo(ctx, master)
+	if err != nil {
+		log.Printf("get shards err: %v\n", err.Error())
+		return nil, err
+	}
+	for _, shard := range firstShards {
+		shardLastSeqno[getShardID(shard)] = shard.SeqNo
+	}
 
-			// var cell boc.Cell
-			// var bin tlb.Int256
-			// bin.UnmarshalTLB(&cell, nil)
-			// var acc tlb.Account
-			// tlb.Unmarshal(&cell, acc)
+	for {
+		log.Printf("scanning %d master block...\n", master.SeqNo)
 
-			// interactor.client.GetTransactions(context.Background(), 100, acc, *tr.Lt, tongo.Bits256(*tr.Hash))
+		// getting information about other work-chains and shards of master block
+		currentShards, err := interactor.client.GetBlockShardsInfo(ctx, master)
+		if err != nil {
+			log.Printf("get shards err: %v\n", err.Error())
+			return nil, err
+		}
+
+		// shards in master block may have holes, e.g. shard seqno 2756461, then 2756463, and no 2756462 in master chain
+		// thus we need to scan a bit back in case of discovering a hole, till last seen, to fill the misses.
+		var newShards []*ton.BlockIDExt
+		for _, shard := range currentShards {
+			notSeen, err := getNotSeenShards(ctx, interactor.client, shard, shardLastSeqno)
+			if err != nil {
+				log.Printf("get not seen shards err: %v\n", err.Error())
+				return nil, err
+			}
+			shardLastSeqno[getShardID(shard)] = shard.SeqNo
+			newShards = append(newShards, notSeen...)
+		}
+
+		var txList []*tlb.Transaction
+
+		// for each shard block getting transactions
+		for _, shard := range newShards {
+			log.Printf("scanning block %d of shard %x...", shard.SeqNo, uint64(shard.Shard))
+
+			var fetchedIDs []ton.TransactionShortInfo
+			var after *ton.TransactionID3
+			var more = true
+
+			// load all transactions in batches with 100 transactions in each while exists
+			for more {
+				fetchedIDs, more, err = interactor.client.WaitForBlock(master.SeqNo).GetBlockTransactionsV2(ctx, shard, 100, after)
+				if err != nil {
+					log.Printf("get tx ids err: %v\n", err.Error())
+					return nil, err
+				}
+
+				if more {
+					// set load offset for next query (pagination)
+					after = fetchedIDs[len(fetchedIDs)-1].ID3()
+				}
+
+				for _, id := range fetchedIDs {
+					// get full transaction by id
+					tx, err := interactor.client.GetTransaction(ctx, shard, address.NewAddress(0, 0, id.Account), id.LT)
+					if err != nil {
+						log.Printf("get tx data err: %v\n", err.Error())
+						return nil, err
+					}
+					txList = append(txList, tx)
+				}
+			}
+		}
+
+		for i, transaction := range txList {
+			log.Println(i, transaction.String())
+		}
+
+		if len(txList) == 0 {
+			log.Printf("no transactions in %d block\n", master.SeqNo)
+		}
+
+		master, err = interactor.client.WaitForBlock(master.SeqNo + 1).GetMasterchainInfo(ctx)
+		if err != nil {
+			log.Printf("get masterchain info err: %v\n", err.Error())
+			return nil, err
 		}
 	}
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"database/sql"
 	"driver/domain"
 	"driver/domain/config"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/tonkeeper/tongo/liteapi"
 	"github.com/tonkeeper/tongo/wallet"
+	"github.com/xssnick/tonutils-go/liteclient"
+	"github.com/xssnick/tonutils-go/ton"
 )
 
 func defaultDependencyInject() {
@@ -60,17 +63,31 @@ func defaultDependencyInject() {
 	unstakeInteractor = usecase.NewUnstakeInteractor(tongoClient, memoInteractor, contractInteractor, unstakeRepository, &driverWallet)
 	extractInteractor = usecase.NewExtractInteractor(tongoClient, memoInteractor, contractInteractor, stakeInteractor, unstakeInteractor, &driverWallet)
 	verifyInteractor = usecase.NewVerifyInteractor(tongoClient, contractInteractor, stakeRepository, unstakeRepository)
-	statisticInteractor = usecase.NewStatisticInteractor(tongoClient)
 
 	messengerCh := make(chan domain.MessagePack, 10)
 	stakeCh := stakeInteractor.InitializeChannel(messengerCh)
 	unstakeCh := unstakeInteractor.InitializeChannel(messengerCh)
 
 	messengerInteractor = usecase.NewMessengerInteractor(tongoClient, &driverWallet, messengerCh, stakeCh, unstakeCh)
+
+	//#############################################################
+	// Use xssnick/tonutils-go library
+	//#############################################################
+	client := liteclient.NewConnectionPool()
+	configUrl := "https://ton-blockchain.github.io/testnet-global.config.json"
+	err = client.AddConnectionsFromConfigUrl(context.Background(), configUrl)
+	if err != nil {
+		panic(err)
+	}
+	cntx := client.StickyContext(context.Background())
+	apiClient = ton.NewAPIClient(client)
+	statisticInteractor = usecase.NewStatisticInteractor(cntx, apiClient)
+
 }
 
 var dbPool *sql.DB
 var tongoClient *liteapi.Client
+var apiClient *ton.APIClient
 var memoInteractor *usecase.MemoInteractor
 var contractInteractor *usecase.ContractInteractor
 var stakeInteractor *usecase.StakeInteractor

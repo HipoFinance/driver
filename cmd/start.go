@@ -4,14 +4,15 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"driver/domain"
-	"driver/domain/config"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"driver/domain"
+	"driver/domain/config"
 
 	"github.com/spf13/cobra"
 )
@@ -22,8 +23,6 @@ var startCmd = &cobra.Command{
 	Short: "Starts driver's tasks",
 	Long:  `Starts driver's tasks. To stop it, run 'stop' command.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("start called.")
-
 		defaultDependencyInject()
 
 		fmt.Printf("\n"+
@@ -50,7 +49,6 @@ var startCmd = &cobra.Command{
 		stakeTicker := schedule(stake, config.GetStakeInterval(), quit)
 		unstakeTicker := schedule(unstake, config.GetUnstakeInterval(), quit)
 		verifyTicker := schedule(verify, config.GetVerifyInterval(), quit)
-		// statisticTicker := schedule(statistic, 5, quit)
 
 		go messengerInteractor.ListenOnChannel()
 
@@ -64,7 +62,6 @@ var startCmd = &cobra.Command{
 		stakeTicker.Stop()
 		unstakeTicker.Stop()
 		verifyTicker.Stop()
-		// statisticTicker.Stop()
 	},
 }
 
@@ -141,12 +138,6 @@ func verify() {
 	if err != nil {
 		fmt.Printf("❌ Failed to verify unstakes - %v\n", err.Error())
 	}
-}
-
-func statistic() {
-	accountId := config.GetTreasuryAccountId()
-
-	statisticInteractor.Statistic(accountId)
 }
 
 func printOutWallets(extractResult *domain.ExtractionResult) {

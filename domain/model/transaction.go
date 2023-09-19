@@ -2,7 +2,9 @@ package model
 
 import (
 	"driver/domain/config"
+	"driver/domain/util"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -187,6 +189,93 @@ func (f *HTransactionFormatter) LocalTimeString() string {
 	return f.obj.UnixTime().Local().Format(time.RFC1123)
 }
 
-func (f *HTransactionFormatter) Value() string {
-	return fmt.Sprintf("%v", f.obj.Value())
+func (f *HTransactionFormatter) ValueInGram() string {
+	return util.GramString(int64(f.obj.Value()))
+}
+
+func (f *HTransactionFormatter) ValueInTon() string {
+	return util.GramToTonString(int64(f.obj.Value()))
+}
+
+func LogTransaction(tx tlb.Transaction) {
+
+	htx := NewHTransaction(&tx)
+
+	accountAddress := htx.Formatter().AccountId(AddrFormatBouncable)
+	hash := htx.Formatter().Hash()
+	tf, _, _, _, _ := htx.Fees()
+
+	totalFees := util.GramToTonString(int64(tf))
+	lt := tx.Lt
+	origStatus := tx.OrigStatus
+	endStatus := tx.EndStatus
+	now := time.Unix(int64(tx.Now), 0)
+
+	msg := htx.InMessage()
+
+	if msg != nil {
+		src := msg.Src()
+		msgSender := "-"
+		if src != nil {
+			msgSender = src.String()
+		}
+
+		dest := msg.Dest()
+		msgDest := "-"
+		if dest != nil {
+			msgDest = dest.String()
+		}
+
+		msgOpcode := msg.Opcode()
+
+		log.Printf("============================================================\n"+
+			"In-Message\n"+
+			"Account Address: %v\n"+
+			"LT:              %v\n"+
+			"Hash:            %v\n"+
+			"Original Status: %v\n"+
+			"End Status:      %v\n"+
+			"Value:           %v\n"+
+			"Total Fees:      %v\n"+
+			"Now:             %v\n"+
+			"Msg Sender:      %v\n"+
+			"Msg Destination: %v\n"+
+			"Msg Opcode:      %x\n",
+			accountAddress, lt, hash, origStatus, endStatus, htx.Formatter().ValueInTon(), totalFees, now.Local().Format(time.RFC1123),
+			msgSender, msgDest, msgOpcode)
+	}
+
+	outMsgs := htx.OutMessages()
+	if len(outMsgs) > 0 {
+		for _, msg := range outMsgs {
+			src := msg.Src()
+			msgSender := "-"
+			if src != nil {
+				msgSender = src.String()
+			}
+
+			dest := msg.Dest()
+			msgDest := "-"
+			if dest != nil {
+				msgDest = dest.String()
+			}
+			msgOpcode := msg.Opcode()
+
+			log.Printf("------------------------------------------------------------\n"+
+				"Account Address: %v\n"+
+				"LT:              %v\n"+
+				"Hash:            %v\n"+
+				"Original Status: %v\n"+
+				"End Status:      %v\n"+
+				"Value:           %v\n"+
+				"Total Fees:      %v\n"+
+				"Now:             %v\n"+
+				"Msg Sender:      %v\n"+
+				"Msg Destination: %v\n"+
+				"Msg Opcode:      %v\n",
+				accountAddress, lt, hash, origStatus, endStatus, htx.Formatter().ValueInTon(), totalFees, now.Local().Format(time.RFC1123),
+				msgSender, msgDest, msgOpcode)
+
+		}
+	}
 }

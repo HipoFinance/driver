@@ -196,7 +196,7 @@ func (interactor *StakeInteractor) MakeStakeRequests(trans []tongo.Transaction) 
 				RoundSince: uint32(tlbm.RoundSince),
 				Hash:       ht.Formatter().Hash(),
 				Info:       info,
-				CreateTime: time.Now()})
+				CreatedAt:  time.Now()})
 		}
 	}
 

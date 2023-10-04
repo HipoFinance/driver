@@ -193,11 +193,11 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 			tokens.UnmarshalText(buff)
 			addr := accid.ToHuman(true, config.IsTestNet())
 			requests = append(requests, domain.UnstakeRequest{
-				Address:    addr,
-				Tokens:     tokens,
-				Hash:       ht.Formatter().Hash(),
-				Info:       info,
-				CreateTime: time.Now()})
+				Address:   addr,
+				Tokens:    tokens,
+				Hash:      ht.Formatter().Hash(),
+				Info:      info,
+				CreatedAt: time.Now()})
 		}
 	}
 

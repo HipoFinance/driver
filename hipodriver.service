@@ -1,0 +1,9 @@
+[Unit]
+Description=Driver service for Hipo
+
+[Service]
+ExecStart=/mnt/driver/driver --config /mnt/driver/config.json start
+Restart=always
+
+[Install]
+WantedBy=default.target

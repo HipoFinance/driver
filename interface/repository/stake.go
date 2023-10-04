@@ -11,7 +11,7 @@ import (
 const (
 	sqlStakeInsertIfNotExists = `
 	insert into stakes as c (
-			address, round_since, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+			address, round_since, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 		)
 		values (
 			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null, null
@@ -23,21 +23,21 @@ const (
 
 	sqlStakeFind = `
 	select
-		address, round_since, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+		address, round_since, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 	from stakes
 	where hash = $1
 `
 
 	sqlStakeFindAllTriable = `
 	select
-		address, round_since, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+		address, round_since, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 	from stakes
 	where state in ('new', 'error', 'retriable') and retry_count < $1
 `
 
 	sqlStakeFindAllVerifiable = `
 	select
-		address, round_since, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+		address, round_since, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 	from stakes
 	where state in ('sent')
 `
@@ -50,19 +50,19 @@ const (
 
 	sqlStakeSetRetrying = `
 	update stakes
-		set retry_count = retry_count + 1, retry_time = $2, state = 'inprogress'
+		set retry_count = retry_count + 1, retried_at = $2, state = 'inprogress'
 	where hash = $1
 `
 
 	sqlStakeSetSent = `
 	update stakes
-		set sent_time = $2, state = 'sent'
+		set sent_at = $2, state = 'sent'
 	where hash = $1
 `
 
 	sqlStakeSetVerified = `
 	update stakes
-		set verified_time = $2, state = 'verified'
+		set verified_at = $2, state = 'verified'
 	where hash = $1
 `
 )
@@ -79,7 +79,7 @@ func readStake(scan func(...interface{}) error) (interface{}, error) {
 	r := domain.StakeRequest{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
+		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreatedAt, &r.RetriedAt, &r.SentAt, &r.VerifiedAt,
 	)
 	if err != nil {
 		return &r, err
@@ -92,7 +92,7 @@ func readAllStakes(memo interface{}, scan func(...interface{}) error) (interface
 	r := domain.StakeRequest{}
 	var infoJson []byte
 	err := scan(
-		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
+		&r.Address, &r.RoundSince, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreatedAt, &r.RetriedAt, &r.SentAt, &r.VerifiedAt,
 	)
 	if err == nil {
 		err = json.Unmarshal(infoJson, &r.Info)

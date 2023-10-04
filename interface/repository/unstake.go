@@ -12,7 +12,7 @@ import (
 const (
 	sqlUntakeInsertIfNotExists = `
 	insert into unstakes as c (
-			address, tokens, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+			address, tokens, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 		)
 		values (
 			$1, $2, $3, 'new', 0, $4::jsonb, now(), null, null, null
@@ -24,21 +24,21 @@ const (
 
 	sqlUnstakeFind = `
 	select
-		address, tokens, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+		address, tokens, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 	from unstakes
 	where hash = $1
 `
 
 	sqlUnstakeFindAllTriable = `
 	select
-		address, tokens, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+		address, tokens, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 	from unstakes
 	where state in ('new', 'error', 'retriable') and retry_count < $1
 `
 
 	sqlUnstakeFindAllVerifiable = `
 	select
-		address, tokens, hash, state, retry_count, info, create_time, retry_time, sent_time, verified_time
+		address, tokens, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 	from unstakes
 	where state in ('sent')
 `
@@ -51,19 +51,19 @@ const (
 
 	sqlUntakeSetRetrying = `
 	update unstakes
-		set retry_count = retry_count + 1, retry_time = $2, state = 'inprogress'
+		set retry_count = retry_count + 1, retried_at = $2, state = 'inprogress'
 	where hash = $1
 `
 
 	sqlUntakeSetSent = `
 	update unstakes
-		set sent_time = $2, state = 'sent'
+		set sent_at = $2, state = 'sent'
 	where hash = $1
 `
 
 	sqlUntakeSetVerified = `
 	update unstakes
-		set sent_time = $2, state = 'verified'
+		set sent_at = $2, state = 'verified'
 	where hash = $1
 `
 )
@@ -81,7 +81,7 @@ func readUnstake(scan func(...interface{}) error) (interface{}, error) {
 	var tokenStr string
 	var infoJson []byte
 	err := scan(
-		&r.Address, &tokenStr, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
+		&r.Address, &tokenStr, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreatedAt, &r.RetriedAt, &r.SentAt, &r.VerifiedAt,
 	)
 	if err != nil {
 		return &r, err
@@ -99,7 +99,7 @@ func readAllUnstakes(memo interface{}, scan func(...interface{}) error) (interfa
 	var tokenStr string
 	var infoJson []byte
 	err := scan(
-		&r.Address, &tokenStr, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreateTime, &r.RetryTime, &r.SentTime, &r.VerifiedTime,
+		&r.Address, &tokenStr, &r.Hash, &r.State, &r.RetryCount, &infoJson, &r.CreatedAt, &r.RetriedAt, &r.SentAt, &r.VerifiedAt,
 	)
 
 	if err == nil {

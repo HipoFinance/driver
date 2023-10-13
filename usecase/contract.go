@@ -78,7 +78,8 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 		}
 	}
 
-	result.BalancedRounds = stack[6].VmStkTinyInt != 0
+	// result.BalancedRounds = stack[6].VmStkTinyInt != 0
+	result.RoundsImbalance = uint8(stack[6].VmStkTinyInt)
 	result.Stopped = stack[7].VmStkTinyInt != 0
 	result.RewardShare = stack[14].VmStkTinyInt
 

@@ -14,8 +14,9 @@ type TreasuryState struct {
 	TotalUnstaking      big.Int
 	TotalValidatorStake big.Int
 	Participations      map[uint32]tlb.Any
-	BalancedRounds      bool
-	Stopped             bool
+	// BalancedRounds      bool
+	RoundsImbalance uint8
+	Stopped         bool
 	// WalletCode          tlb.Cell
 	// LoanCode            tlb.Cell
 	// Driver              tlb.Slice

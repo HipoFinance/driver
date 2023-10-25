@@ -38,24 +38,25 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 		return nil, err
 	}
 
-	if len(stack) != 17 ||
+	if len(stack) != 18 ||
 		(stack[0].SumType != "VmStkTinyInt" && stack[0].SumType != "VmStkInt") ||
 		(stack[1].SumType != "VmStkTinyInt" && stack[1].SumType != "VmStkInt") ||
 		(stack[2].SumType != "VmStkTinyInt" && stack[2].SumType != "VmStkInt") ||
 		(stack[3].SumType != "VmStkTinyInt" && stack[3].SumType != "VmStkInt") ||
 		(stack[4].SumType != "VmStkTinyInt" && stack[4].SumType != "VmStkInt") ||
-		(stack[5].SumType != "VmStkCell" && stack[5].SumType != "VmStkNull") ||
-		(stack[6].SumType != "VmStkTinyInt") ||
-		(stack[7].SumType != "VmStkTinyInt") ||
-		(stack[8].SumType != "VmStkCell") ||
-		(stack[9].SumType != "VmStkCell") ||
-		(stack[10].SumType != "VmStkSlice") ||
-		(stack[11].SumType != "VmStkSlice") ||
+		(stack[5].SumType != "VmStkTinyInt" && stack[5].SumType != "VmStkInt") ||
+		(stack[6].SumType != "VmStkTinyInt" && stack[6].SumType != "VmStkInt") ||
+		(stack[7].SumType != "VmStkCell" && stack[7].SumType != "VmStkNull") ||
+		(stack[8].SumType != "VmStkTinyInt") ||
+		(stack[9].SumType != "VmStkTinyInt") ||
+		(stack[10].SumType != "VmStkCell") ||
+		(stack[11].SumType != "VmStkCell") ||
 		(stack[12].SumType != "VmStkSlice") ||
-		(stack[13].SumType != "VmStkSlice" && stack[13].SumType != "VmStkNull") ||
-		stack[14].SumType != "VmStkTinyInt" ||
-		(stack[15].SumType != "VmStkCell" && stack[15].SumType != "VmStkNull") ||
-		(stack[16].SumType != "VmStkCell") {
+		(stack[13].SumType != "VmStkSlice") ||
+		(stack[14].SumType != "VmStkSlice") ||
+		(stack[15].SumType != "VmStkSlice" && stack[15].SumType != "VmStkNull") ||
+		stack[16].SumType != "VmStkTinyInt" ||
+		(stack[17].SumType != "VmStkCell") {
 		return nil, ErrorUnexpectedTreasuryState
 	}
 
@@ -67,9 +68,9 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 	result.TotalUnstaking.Set(getBigIntValue(stack[3], 0))
 	result.TotalValidatorStake.Set(getBigIntValue(stack[4], 0))
 
-	if stack[5].SumType == "VmStkCell" {
+	if stack[7].SumType == "VmStkCell" {
 		result.Participations = make(map[uint32]tlb.Any)
-		cell := stack[5].VmStkCell.Value
+		cell := stack[7].VmStkCell.Value
 		var x tlb.Hashmap[tlb.Uint32, tlb.Any]
 		x.UnmarshalTLB(&cell, tlb.NewDecoder())
 
@@ -79,9 +80,9 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 	}
 
 	// result.BalancedRounds = stack[6].VmStkTinyInt != 0
-	result.RoundsImbalance = uint8(stack[6].VmStkTinyInt)
-	result.Stopped = stack[7].VmStkTinyInt != 0
-	result.RewardShare = stack[14].VmStkTinyInt
+	result.RoundsImbalance = uint8(stack[8].VmStkTinyInt)
+	result.Stopped = stack[9].VmStkTinyInt != 0
+	result.RewardShare = stack[16].VmStkTinyInt
 
 	return result, nil
 }

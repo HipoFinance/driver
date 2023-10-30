@@ -14,7 +14,7 @@ import (
 
 const (
 	OpcodeSaveCoin     = uint32(0x7f30ee55)
-	OpcodeReserveToken = uint32(0x7bdd97de)
+	OpcodeReserveToken = uint32(0x24a319a7)
 )
 
 type ExtractInteractor struct {

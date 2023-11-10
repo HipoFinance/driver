@@ -54,7 +54,7 @@ func (interactor *ContractInteractor) GetTreasuryState() (*model.TreasuryState, 
 		(stack[12].SumType != "VmStkSlice") ||
 		(stack[13].SumType != "VmStkSlice") ||
 		(stack[14].SumType != "VmStkSlice") ||
-		(stack[15].SumType != "VmStkSlice" && stack[15].SumType != "VmStkNull") ||
+		(stack[15].SumType != "VmStkCell" && stack[15].SumType != "VmStkNull") ||
 		stack[16].SumType != "VmStkTinyInt" ||
 		(stack[17].SumType != "VmStkCell") {
 		return nil, ErrorUnexpectedTreasuryState

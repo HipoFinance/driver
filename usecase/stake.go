@@ -4,6 +4,7 @@ import (
 	"driver/domain"
 	"driver/domain/config"
 	"driver/domain/model"
+	"driver/interface/exporter"
 	"driver/interface/repository"
 	"log"
 	"time"
@@ -54,6 +55,8 @@ func (interactor *StakeInteractor) Store(requests []domain.StakeRequest) error {
 	for _, request := range requests {
 		_, err := interactor.stakeRepository.InsertIfNotExists(request.Address, request.RoundSince, request.Hash, request.Info)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 inserting stake - %v\n", err.Error())
 			return err
 		}
@@ -65,6 +68,8 @@ func (interactor *StakeInteractor) LoadTriable() ([]*domain.StakeRequest, error)
 
 	requests, err := interactor.stakeRepository.FindAllTriable(config.GetMaxRetry())
 	if err != nil {
+		exporter.IncErrorCount()
+
 		log.Printf("🔴 loading stake - %v\n", err.Error())
 		return nil, err
 	}
@@ -96,6 +101,8 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []*d
 
 	treasuryState, err := interactor.contractInteractor.GetTreasuryState()
 	if err != nil {
+		exporter.IncErrorCount()
+
 		log.Printf("🔴 getting treasury state - %v\n", err.Error())
 		return err
 	}
@@ -108,6 +115,8 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []*d
 		for _, request := range subList {
 			accid, err := tongo.AccountIDFromBase64Url(request.Address)
 			if err != nil {
+				exporter.IncErrorCount()
+
 				log.Printf("🔴 parsing wallet address %v - %v\n", request.Address, err.Error())
 				continue
 			}
@@ -117,6 +126,8 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []*d
 			// check the wallet to know if it is wating for a stake-coin messages, using get_wallet_state
 			walletState, err := interactor.contractInteractor.GetWalletState(accid)
 			if err != nil {
+				exporter.IncErrorCount()
+
 				log.Printf("🔴 getting wallet state - %v\n", err.Error())
 				interactor.stakeRepository.SetState(request.Hash, domain.RequestStateError)
 				continue
@@ -210,11 +221,15 @@ func (interactor *StakeInteractor) ListenOnResponse(respCh chan Response) {
 
 		request := resp.StakeRequest
 		if request == nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 staking [hash: %v] - request is nil!\n", resp.reference)
 			continue
 		}
 
 		if !resp.ok {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 staking [wallet: %v] - %v\n", request.Address, resp.err.Error())
 			interactor.stakeRepository.SetState(request.Hash, domain.RequestStateError)
 		} else {

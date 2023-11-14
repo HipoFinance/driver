@@ -4,6 +4,7 @@ import (
 	"driver/domain"
 	"driver/domain/config"
 	"driver/domain/model"
+	"driver/interface/exporter"
 	"driver/interface/repository"
 	"log"
 	"math/big"
@@ -56,6 +57,8 @@ func (interactor *UnstakeInteractor) Store(requests []domain.UnstakeRequest) err
 	for _, request := range requests {
 		_, err := interactor.unstakeRepository.InsertIfNotExists(request.Address, request.Tokens, request.Hash, request.Info)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 inserting unstake - %v\n", err.Error())
 			return err
 		}
@@ -67,6 +70,8 @@ func (interactor *UnstakeInteractor) LoadTriable() ([]*domain.UnstakeRequest, er
 
 	requests, err := interactor.unstakeRepository.FindAllTriable(config.GetMaxRetry())
 	if err != nil {
+		exporter.IncErrorCount()
+
 		log.Printf("🔴 loading unstake - %v\n", err.Error())
 		return nil, err
 	}
@@ -85,6 +90,8 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 		accid, err := tongo.AccountIDFromBase64Url(request.Address)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 parsing wallet address %v - %v\n", request.Address, err.Error())
 			continue
 		}
@@ -92,6 +99,8 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 		// Get maximum burnable tokens as the total budget for unstaking.
 		totalBudget, err := interactor.contractInteractor.GetMaxBurnableTokens()
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 getting max burnable tokens - %v\n", err.Error())
 			continue
 		}
@@ -105,6 +114,8 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 		// Check the wallet to know if it is wating for a withdraw messages.
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 getting wallet state - %v\n", err.Error())
 			interactor.unstakeRepository.SetState(request.Hash, domain.RequestStateError)
 			continue
@@ -178,6 +189,8 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 			tlbm := domain.TlbReserveTokenMessage{}
 			err := tlb.Unmarshal(cell, &tlbm)
 			if err != nil {
+				exporter.IncErrorCount()
+
 				log.Printf("🔴 unmarshaling message body [trans hash: %v] - %v\n", ht.Formatter().Hash(), err.Error())
 				continue
 			}
@@ -185,6 +198,8 @@ func (interactor *UnstakeInteractor) MakeUnstakeRequests(trans []tongo.Transacti
 			// @TODO: Use a better conversion method
 			buff, err := tlbm.Tokens.MarshalJSON()
 			if err != nil {
+				exporter.IncErrorCount()
+
 				log.Printf("🔴 parsing tokens [value: %v] - %v\n", tlbm.Tokens, err.Error())
 				continue
 			}
@@ -211,11 +226,15 @@ func (interactor *UnstakeInteractor) ListenOnResponse(respCh chan Response) {
 
 		request := resp.UnstakeRequest
 		if request == nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 unstaking [hash: %v] - request is nil!\n", resp.reference)
 			continue
 		}
 
 		if !resp.ok {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 unstaking [wallet: %v] - %v\n", request.Address, resp.err.Error())
 			interactor.unstakeRepository.SetState(request.Hash, domain.RequestStateError)
 		} else {

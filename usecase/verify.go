@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"driver/domain"
+	"driver/interface/exporter"
 	"driver/interface/repository"
 	"log"
 	"math/big"
@@ -36,12 +37,16 @@ func (interactor *VerifyInteractor) LoadVerifiable() ([]*domain.StakeRequest, []
 
 	stakeRequests, err := interactor.stakeRepository.FindAllVerifiable()
 	if err != nil {
+		exporter.IncErrorCount()
+
 		log.Printf("🔴 loading verifiable stake - %v\n", err.Error())
 		return nil, nil, err
 	}
 
 	unstakeRequests, err := interactor.unstakeRepository.FindAllVerifiable()
 	if err != nil {
+		exporter.IncErrorCount()
+
 		log.Printf("🔴 loading verifiable unstake - %v\n", err.Error())
 		return nil, nil, err
 	}
@@ -55,6 +60,8 @@ func (interactor *VerifyInteractor) VerifyStakeRequests(requests []*domain.Stake
 		log.Printf("verifying stake [wallet = %v]\n", request.Address)
 		accid, err := tongo.AccountIDFromBase64Url(request.Address)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 verifying stake - parsing wallet address %v - %v\n", request.Address, err.Error())
 			continue
 		}
@@ -62,6 +69,8 @@ func (interactor *VerifyInteractor) VerifyStakeRequests(requests []*domain.Stake
 		// Check the wallet to know if it is wating for a stake-coin messages.
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 verifying stake - getting wallet state - %v\n", err.Error())
 			continue
 		}
@@ -86,6 +95,8 @@ func (interactor *VerifyInteractor) VerifyUnstakeRequests(requests []*domain.Uns
 		log.Printf("verifying unstake [wallet = %v]\n", request.Address)
 		accid, err := tongo.AccountIDFromBase64Url(request.Address)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 verifying unstake - parsing wallet address %v - %v\n", request.Address, err.Error())
 			continue
 		}
@@ -93,6 +104,8 @@ func (interactor *VerifyInteractor) VerifyUnstakeRequests(requests []*domain.Uns
 		// Check the wallet to know if it is wating for a withdraw messages.
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 verifying unstake - getting wallet state - %v\n", err.Error())
 			continue
 		}

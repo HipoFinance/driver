@@ -4,6 +4,7 @@ import (
 	"context"
 	"driver/domain"
 	"driver/domain/model"
+	"driver/interface/exporter"
 	"fmt"
 	"log"
 
@@ -53,6 +54,8 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	// Read the latest processed transaction info
 	latestProcessedHash, err := interactor.memoInteractor.GetLatestProcessedHash()
 	if err != nil {
+		exporter.IncErrorCount()
+
 		fmt.Printf("🔴 getting last processed hash - %v\n", err.Error())
 		return nil, err
 	}
@@ -60,6 +63,8 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	// Get last transactions of the treasury account, sorted decently by time.
 	trans, err := interactor.client.GetLastTransactions(context.Background(), treasuryAccount, 50)
 	if err != nil {
+		exporter.IncErrorCount()
+
 		fmt.Printf("🔴 getting last transactions - %v\n", err.Error())
 		return nil, err
 	}
@@ -101,6 +106,8 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 			// Extract previous transactions. GetTransactions function returns 16 items by max, this is why 16 is passed for the count parameter.
 			trans, err = interactor.client.GetTransactions(context.Background(), 16, treasuryAccount, lt, hash)
 			if err != nil {
+				exporter.IncErrorCount()
+
 				log.Printf("🔴 getting transactions - %v\n", err.Error())
 				fmt.Printf("❌ No wallet will be kept due to above error.\n")
 				return nil, err
@@ -117,6 +124,8 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	if firstTransHash != "" && firstTransHash != latestProcessedHash {
 		err = interactor.memoInteractor.SetLatestProcessedHash(firstTransHash)
 		if err != nil {
+			exporter.IncErrorCount()
+
 			log.Printf("🔴 updating latest hash - %v\n", err.Error())
 		}
 	}
@@ -127,12 +136,16 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 func (interactor *ExtractInteractor) Store(extractResult *domain.ExtractionResult) error {
 	err := interactor.stakeInteractor.Store(extractResult.StakeRequests)
 	if err != nil {
+		exporter.IncErrorCount()
+
 		log.Printf("🔴 storing stake - %v\n", err.Error())
 		return err
 	}
 
 	err = interactor.unstakeInteractor.Store(extractResult.UnstakeRequests)
 	if err != nil {
+		exporter.IncErrorCount()
+
 		log.Printf("🔴 storing unstake - %v\n", err.Error())
 		return err
 	}

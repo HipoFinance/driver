@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 	"driver/domain"
 	"driver/domain/config"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +51,10 @@ var startCmd = &cobra.Command{
 		stakeTicker := schedule(stake, config.GetStakeInterval(), quit)
 		unstakeTicker := schedule(unstake, config.GetUnstakeInterval(), quit)
 		verifyTicker := schedule(verify, config.GetVerifyInterval(), quit)
+
+		// Handle prometheus metrics
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":2990", nil)
 
 		go messengerInteractor.ListenOnChannel()
 

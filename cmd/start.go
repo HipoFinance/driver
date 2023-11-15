@@ -52,11 +52,11 @@ var startCmd = &cobra.Command{
 		unstakeTicker := schedule(unstake, config.GetUnstakeInterval(), quit)
 		verifyTicker := schedule(verify, config.GetVerifyInterval(), quit)
 
+		go messengerInteractor.ListenOnChannel()
+
 		// Handle prometheus metrics
 		http.Handle("/metrics", promhttp.Handler())
-		http.ListenAndServe(":2990", nil)
-
-		go messengerInteractor.ListenOnChannel()
+		go http.ListenAndServe(":2990", nil)
 
 		signal.Ignore()
 		stop := make(chan os.Signal, 1)

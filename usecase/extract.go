@@ -55,7 +55,6 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	latestProcessedHash, err := interactor.memoInteractor.GetLatestProcessedHash()
 	if err != nil {
 		exporter.IncErrorCount()
-
 		fmt.Printf("🔴 getting last processed hash - %v\n", err.Error())
 		return nil, err
 	}
@@ -64,7 +63,6 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 	trans, err := interactor.client.GetLastTransactions(context.Background(), treasuryAccount, 50)
 	if err != nil {
 		exporter.IncErrorCount()
-
 		fmt.Printf("🔴 getting last transactions - %v\n", err.Error())
 		return nil, err
 	}
@@ -107,7 +105,6 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 			trans, err = interactor.client.GetTransactions(context.Background(), 16, treasuryAccount, lt, hash)
 			if err != nil {
 				exporter.IncErrorCount()
-
 				log.Printf("🔴 getting transactions - %v\n", err.Error())
 				fmt.Printf("❌ No wallet will be kept due to above error.\n")
 				return nil, err
@@ -125,7 +122,6 @@ func (interactor *ExtractInteractor) Extract(treasuryAccount tongo.AccountID) (*
 		err = interactor.memoInteractor.SetLatestProcessedHash(firstTransHash)
 		if err != nil {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 updating latest hash - %v\n", err.Error())
 		}
 	}
@@ -137,7 +133,6 @@ func (interactor *ExtractInteractor) Store(extractResult *domain.ExtractionResul
 	err := interactor.stakeInteractor.Store(extractResult.StakeRequests)
 	if err != nil {
 		exporter.IncErrorCount()
-
 		log.Printf("🔴 storing stake - %v\n", err.Error())
 		return err
 	}
@@ -145,7 +140,6 @@ func (interactor *ExtractInteractor) Store(extractResult *domain.ExtractionResul
 	err = interactor.unstakeInteractor.Store(extractResult.UnstakeRequests)
 	if err != nil {
 		exporter.IncErrorCount()
-
 		log.Printf("🔴 storing unstake - %v\n", err.Error())
 		return err
 	}

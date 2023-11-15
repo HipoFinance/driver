@@ -23,7 +23,7 @@ type StakeInteractor struct {
 	driverWallet       *tgwallet.Wallet
 
 	messengerCh chan domain.MessagePack
-	resposeCh   chan Response
+	responseCh  chan Response
 }
 
 func NewStakeInteractor(client *liteapi.Client,
@@ -46,9 +46,9 @@ func (interactor *StakeInteractor) InitializeChannel(messengerCh chan domain.Mes
 
 	interactor.messengerCh = messengerCh
 
-	interactor.resposeCh = make(chan Response, 5)
-	go interactor.ListenOnResponse(interactor.resposeCh)
-	return interactor.resposeCh
+	interactor.responseCh = make(chan Response, 5)
+	go interactor.ListenOnResponse(interactor.responseCh)
+	return interactor.responseCh
 }
 
 func (interactor *StakeInteractor) Store(requests []domain.StakeRequest) error {
@@ -56,7 +56,6 @@ func (interactor *StakeInteractor) Store(requests []domain.StakeRequest) error {
 		_, err := interactor.stakeRepository.InsertIfNotExists(request.Address, request.RoundSince, request.Hash, request.Info)
 		if err != nil {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 inserting stake - %v\n", err.Error())
 			return err
 		}
@@ -69,7 +68,6 @@ func (interactor *StakeInteractor) LoadTriable() ([]*domain.StakeRequest, error)
 	requests, err := interactor.stakeRepository.FindAllTriable(config.GetMaxRetry())
 	if err != nil {
 		exporter.IncErrorCount()
-
 		log.Printf("🔴 loading stake - %v\n", err.Error())
 		return nil, err
 	}
@@ -102,7 +100,6 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []*d
 	treasuryState, err := interactor.contractInteractor.GetTreasuryState()
 	if err != nil {
 		exporter.IncErrorCount()
-
 		log.Printf("🔴 getting treasury state - %v\n", err.Error())
 		return err
 	}
@@ -116,7 +113,6 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []*d
 			accid, err := tongo.AccountIDFromBase64Url(request.Address)
 			if err != nil {
 				exporter.IncErrorCount()
-
 				log.Printf("🔴 parsing wallet address %v - %v\n", request.Address, err.Error())
 				continue
 			}
@@ -127,7 +123,6 @@ func (interactor *StakeInteractor) SendStakeMessageToJettonWallets(requests []*d
 			walletState, err := interactor.contractInteractor.GetWalletState(accid)
 			if err != nil {
 				exporter.IncErrorCount()
-
 				log.Printf("🔴 getting wallet state - %v\n", err.Error())
 				interactor.stakeRepository.SetState(request.Hash, domain.RequestStateError)
 				continue
@@ -222,14 +217,12 @@ func (interactor *StakeInteractor) ListenOnResponse(respCh chan Response) {
 		request := resp.StakeRequest
 		if request == nil {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 staking [hash: %v] - request is nil!\n", resp.reference)
 			continue
 		}
 
 		if !resp.ok {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 staking [wallet: %v] - %v\n", request.Address, resp.err.Error())
 			interactor.stakeRepository.SetState(request.Hash, domain.RequestStateError)
 		} else {

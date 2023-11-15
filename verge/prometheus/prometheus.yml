@@ -1,0 +1,32 @@
+global:
+  scrape_interval:     5s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'hipo'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+      - targets:
+        - 165.232.150.57:9093
+
+rule_files:
+  # - 'first.rules'
+  # - 'second.rules'
+  - /opt/prometheus/rules/*.yml
+
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['165.232.150.57:9090']
+  - job_name: borrower
+    static_configs:
+      - targets: ['65.109.109.185:9100']
+  - job_name: driver
+    static_configs:
+      - targets: ['167.172.56.246:9100', '167.172.56.246:2990']
+  - job_name: test-driver
+    static_configs:
+      - targets: ['165.232.150.57:9100']
+  

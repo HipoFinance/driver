@@ -138,6 +138,7 @@ func (interactor *ContractInteractor) GetWalletState(accountId tongo.AccountID) 
 
 	return result, nil
 }
+
 func (interactor *ContractInteractor) GetTreasuryBalance() (uint64, error) {
 	state, err := interactor.client.GetAccountState(context.Background(), config.GetTreasuryAccountId())
 	if err != nil {

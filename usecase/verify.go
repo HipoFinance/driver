@@ -38,7 +38,6 @@ func (interactor *VerifyInteractor) LoadVerifiable() ([]*domain.StakeRequest, []
 	stakeRequests, err := interactor.stakeRepository.FindAllVerifiable()
 	if err != nil {
 		exporter.IncErrorCount()
-
 		log.Printf("🔴 loading verifiable stake - %v\n", err.Error())
 		return nil, nil, err
 	}
@@ -46,7 +45,6 @@ func (interactor *VerifyInteractor) LoadVerifiable() ([]*domain.StakeRequest, []
 	unstakeRequests, err := interactor.unstakeRepository.FindAllVerifiable()
 	if err != nil {
 		exporter.IncErrorCount()
-
 		log.Printf("🔴 loading verifiable unstake - %v\n", err.Error())
 		return nil, nil, err
 	}
@@ -61,7 +59,6 @@ func (interactor *VerifyInteractor) VerifyStakeRequests(requests []*domain.Stake
 		accid, err := tongo.AccountIDFromBase64Url(request.Address)
 		if err != nil {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 verifying stake - parsing wallet address %v - %v\n", request.Address, err.Error())
 			continue
 		}
@@ -70,7 +67,6 @@ func (interactor *VerifyInteractor) VerifyStakeRequests(requests []*domain.Stake
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
 		if err != nil {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 verifying stake - getting wallet state - %v\n", err.Error())
 			continue
 		}
@@ -96,7 +92,6 @@ func (interactor *VerifyInteractor) VerifyUnstakeRequests(requests []*domain.Uns
 		accid, err := tongo.AccountIDFromBase64Url(request.Address)
 		if err != nil {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 verifying unstake - parsing wallet address %v - %v\n", request.Address, err.Error())
 			continue
 		}
@@ -105,7 +100,6 @@ func (interactor *VerifyInteractor) VerifyUnstakeRequests(requests []*domain.Uns
 		walletState, err := interactor.contractInteractor.GetWalletState(accid)
 		if err != nil {
 			exporter.IncErrorCount()
-
 			log.Printf("🔴 verifying unstake - getting wallet state - %v\n", err.Error())
 			continue
 		}

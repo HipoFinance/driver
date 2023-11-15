@@ -1,0 +1,19 @@
+route:
+  repeat_interval: 5m
+  receiver: 'telegram'
+receivers:
+  - name: 'telegram'
+    webhook_configs:
+    - send_resolved: True
+      url: http://127.0.0.1:9087/alert/-1002106520048
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']
+
+templates:
+  - '/opt/alert-manager/alert.tmpl'
+  

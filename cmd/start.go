@@ -111,7 +111,7 @@ func extract() {
 func stake() {
 	requests, err := stakeInteractor.LoadTriable()
 	if err != nil {
-		fmt.Printf("❌ Failed to send Stake messages - %v\n", err.Error())
+		fmt.Printf("❌ Failed to load Stake requests - %v\n", err.Error())
 		return
 	}
 

@@ -33,7 +33,7 @@ const (
 	select
 		address, tokens, hash, state, retry_count, info, created_at, retried_at, sent_at, verified_at
 	from unstakes
-	where state in ('new', 'error', 'retriable') and retry_count < $1
+	where state in ('new', 'error', 'retriable', 'ongoing') and retry_count < $1
 `
 
 	sqlUnstakeFindAllVerifiable = `
@@ -51,7 +51,7 @@ const (
 
 	sqlUntakeSetRetrying = `
 	update unstakes
-		set retry_count = retry_count + 1, retried_at = $2, state = 'inprogress'
+		set retry_count = retry_count + 1, retried_at = $2, state = 'ongoing'
 	where hash = $1
 `
 

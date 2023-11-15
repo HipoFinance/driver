@@ -94,11 +94,11 @@ func (interactor *MessengerInteractor) waitForNextSeqno(seqno uint32) (uint32, e
 	err := ErrorTimeOut
 	currSeqno := seqno
 
-	start := time.Now()
-	for time.Now().Before(start.Add(30 * time.Second)) {
-		currSeqno, err = interactor.client.GetSeqno(context.Background(), driverAccountId)
-		if err != nil {
-			log.Printf("🔴 getting current driver's seqno - %v\n", err.Error())
+	timeout := time.Now().Add(30 * time.Second)
+	for time.Now().Before(timeout) {
+		currSeqno, inErr := interactor.client.GetSeqno(context.Background(), driverAccountId)
+		if inErr != nil {
+			log.Printf("🔴 getting current driver's seqno - %v\n", inErr.Error())
 		}
 
 		if currSeqno > seqno {

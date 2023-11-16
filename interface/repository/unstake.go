@@ -63,7 +63,7 @@ const (
 
 	sqlUntakeSetVerified = `
 	update unstakes
-		set sent_at = $2, state = 'verified'
+		set verified_at = $2, state = 'verified'
 	where hash = $1
 `
 )

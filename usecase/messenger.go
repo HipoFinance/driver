@@ -50,12 +50,6 @@ func (interactor *MessengerInteractor) ListenOnChannel() error {
 	var err error = nil
 	var seqno uint32 = 0
 
-	driverAccountId := interactor.driverWallet.GetAddress()
-	seqno, err = interactor.client.GetSeqno(context.Background(), driverAccountId)
-	if err != nil {
-		log.Printf("🔴 getting current driver's seqno - %v\n", err.Error())
-	}
-
 	// @TODO: implement a way to end the loop and close the channel
 	for {
 		msg := <-interactor.listenerCh
@@ -63,11 +57,19 @@ func (interactor *MessengerInteractor) ListenOnChannel() error {
 			break
 		}
 
+		// Get the current sequence number
+		driverAccountId := interactor.driverWallet.GetAddress()
+		seqno, err = interactor.client.GetSeqno(context.Background(), driverAccountId)
+		if err != nil {
+			log.Printf("🔴 getting current driver's seqno - %v\n", err.Error())
+		}
+
+		// Send a message and wait for the sequence number to increase
 		err = interactor.driverWallet.Send(context.Background(), msg.Message.MakeMessage())
 		if err != nil {
 			log.Printf("🔴 sending message [reference: %v] - %v\n", msg.Reference, err.Error())
 		} else {
-			seqno, err = interactor.waitForNextSeqno(seqno)
+			_, err = interactor.waitForNextSeqno(seqno)
 			if err != nil {
 				log.Printf("🔴 timed out for getting next seqno [seqno: %v] - %v\n", seqno, err.Error())
 				continue

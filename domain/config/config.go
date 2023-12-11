@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/tonkeeper/tongo"
+	"github.com/tonkeeper/tongo/ton"
 	"github.com/tonkeeper/tongo/wallet"
 )
 
@@ -88,7 +89,7 @@ func initializeVariables() error {
 
 	// Treasury stuff
 	treasuryAddress = strings.TrimSpace(viper.GetString("treasury_address"))
-	treasuryAccountId, err = tongo.AccountIDFromBase64Url(treasuryAddress)
+	treasuryAccountId, err = ton.AccountIDFromBase64Url(treasuryAddress)
 	if err != nil {
 		return ErrorInvalidTreausryAddress
 	}

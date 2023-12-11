@@ -9,7 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
-	github.com/tonkeeper/tongo v1.2.2
+	github.com/tonkeeper/tongo v1.4.1
 )
 
 require (

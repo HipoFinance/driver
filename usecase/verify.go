@@ -8,8 +8,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/tonkeeper/tongo"
 	"github.com/tonkeeper/tongo/liteapi"
+	"github.com/tonkeeper/tongo/ton"
 )
 
 type VerifyInteractor struct {
@@ -56,7 +56,7 @@ func (interactor *VerifyInteractor) VerifyStakeRequests(requests []*domain.Stake
 
 	for _, request := range requests {
 		log.Printf("verifying stake [wallet = %v]\n", request.Address)
-		accid, err := tongo.AccountIDFromBase64Url(request.Address)
+		accid, err := ton.AccountIDFromBase64Url(request.Address)
 		if err != nil {
 			exporter.IncErrorCount()
 			log.Printf("🔴 verifying stake - parsing wallet address %v - %v\n", request.Address, err.Error())
@@ -89,7 +89,7 @@ func (interactor *VerifyInteractor) VerifyUnstakeRequests(requests []*domain.Uns
 
 	for _, request := range requests {
 		log.Printf("verifying unstake [wallet = %v]\n", request.Address)
-		accid, err := tongo.AccountIDFromBase64Url(request.Address)
+		accid, err := ton.AccountIDFromBase64Url(request.Address)
 		if err != nil {
 			exporter.IncErrorCount()
 			log.Printf("🔴 verifying unstake - parsing wallet address %v - %v\n", request.Address, err.Error())

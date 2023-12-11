@@ -14,6 +14,7 @@ import (
 	"github.com/tonkeeper/tongo"
 	"github.com/tonkeeper/tongo/liteapi"
 	"github.com/tonkeeper/tongo/tlb"
+	"github.com/tonkeeper/tongo/ton"
 	tgwallet "github.com/tonkeeper/tongo/wallet"
 )
 
@@ -86,7 +87,7 @@ func (interactor *UnstakeInteractor) SendWithdrawMessageToJettonWallets(requests
 
 	for _, request := range requests {
 
-		accid, err := tongo.AccountIDFromBase64Url(request.Address)
+		accid, err := ton.AccountIDFromBase64Url(request.Address)
 		if err != nil {
 			exporter.IncErrorCount()
 			log.Printf("🔴 parsing wallet address %v - %v\n", request.Address, err.Error())

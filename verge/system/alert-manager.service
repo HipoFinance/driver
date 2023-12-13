@@ -6,6 +6,7 @@ After=network-online.target
 
 [Service]
 Type=simple
+Restart=on-failure
 ExecStart=/opt/alert-manager/alertmanager --config.file=/opt/alert-manager/alertmanager.yml
 
 

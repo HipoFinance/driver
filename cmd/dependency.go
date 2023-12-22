@@ -36,8 +36,8 @@ func defaultDependencyInject() {
 		// tongoClient, err = liteapi.NewClientWithDefaultMainnet()
 		servers := make([]tconfig.LiteServer, 0, 1)
 		servers = append(servers, tconfig.LiteServer{
-			Host: "65.21.233.98:28665",
-			Key:  "5tu0NXWIaLwglTpbHf7EFKVhXJs9fhWBQANBnJp5k3I=",
+			Host: "65.21.233.98:34796",
+			Key:  "5TTG6JCfkbscgAUksjKXFlEsMoNM2fm/3NK5w9jnFWc="
 		})
 		tongoClient, err = liteapi.NewClient(liteapi.WithLiteServers(servers))
 

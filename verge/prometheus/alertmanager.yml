@@ -1,5 +1,5 @@
 route:
-  repeat_interval: 5m
+  repeat_interval: 4h
   receiver: 'telegram'
 receivers:
   - name: 'telegram'

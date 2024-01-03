@@ -5,9 +5,10 @@ groups:
   rules:
 
     - alert: HighErrorRate
-      expr: 'delta(hipo_driver_error_count[30m]) > 100'
+      expr: 'increase(hipo_driver_error_count[20m]) > 200'
+      for: 30m
       labels:
         severity: warning
       annotations:
         summary: Too many errors happened (instance {{ $labels.instance }})
-        description: "More than 100 errors happened in last 30 minutes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+        description: "Error rate is too high since 30m ago.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

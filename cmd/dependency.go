@@ -34,10 +34,16 @@ func defaultDependencyInject() {
 	switch strings.ToLower(config.GetNetwork()) {
 	case config.MainNetwork:
 		// tongoClient, err = liteapi.NewClientWithDefaultMainnet()
-		servers := make([]tconfig.LiteServer, 0, 1)
+		servers := make([]tconfig.LiteServer, 0, 2)
 		servers = append(servers, tconfig.LiteServer{
-			Host: "65.21.233.98:34796",
-			Key:  "5TTG6JCfkbscgAUksjKXFlEsMoNM2fm/3NK5w9jnFWc=",
+			// our own liteserver
+			Host: "65.21.233.98:10921",
+			Key:  "oQA4Aw6amTlGgHViZL8/q7imogswLuFBIoBDl0kfhXo=",
+		})
+		servers = append(servers, tconfig.LiteServer{
+			// global archive server
+			Host: "135.181.177.59:53312",
+			Key:  "aF91CuUHuuOv9rm2W5+O/4h38M3sRm40DtSdRxQhmtQ=",
 		})
 		tongoClient, err = liteapi.NewClient(liteapi.WithLiteServers(servers))
 

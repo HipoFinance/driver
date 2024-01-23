@@ -12,5 +12,5 @@
     "unstake_interval": "5s",
     "verify_interval": "10s",
 
-    "max_retry": 3
+    "max_retry": 5
 }

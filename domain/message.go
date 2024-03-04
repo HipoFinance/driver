@@ -87,7 +87,7 @@ func (msg WithdrawMessage) MakeMessage() *wallet.Message {
 	tlb.Marshal(cell, msg.TlbMsg)
 
 	wmsg := wallet.Message{
-		Amount:  150000000,     //  tlb.Grams
+		Amount:  300000000,     //  tlb.Grams
 		Address: msg.AccountId, //  tongo.AccountID
 		Body:    cell,          //  *boc.Cell
 		Code:    nil,           //  *boc.Cell
